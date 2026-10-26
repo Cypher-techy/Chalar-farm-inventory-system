@@ -11,6 +11,7 @@ import {
   Loader2,
   Users,
   Radio,
+  Paperclip,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/portal/ui';
 
@@ -32,6 +33,7 @@ interface MessageRow {
   body: string;
   messageType: string;
   attachmentFileName: string | null;
+  attachmentDocCode: string | null;
   createdAt: string;
   senderUserId: number;
   senderName: string;
@@ -68,6 +70,8 @@ export default function ChatWorkspace({ me }: { me: { id: number; fullName: stri
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [sending, setSending] = useState(false);
+  const [attachment, setAttachment] = useState<{ docCode: string; name: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [startOpen, setStartOpen] = useState(false);
@@ -138,27 +142,60 @@ export default function ChatWorkspace({ me }: { me: { id: number; fullName: stri
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages]);
 
+  async function uploadFile(file: File) {
+    if (!activeId) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('title', file.name);
+      form.append('category', 'CHAT_ATTACHMENT');
+      form.append('conversationId', String(activeId));
+      const res = await fetch('/api/documents', { method: 'POST', body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? 'Upload rejected.');
+        return;
+      }
+      setAttachment({ docCode: String(data.docCode), name: file.name });
+    } catch {
+      setError('Upload failed (network error).');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function send() {
-    if (!activeId || !draft.trim() || sending) return;
+    if (!activeId || (!draft.trim() && !attachment) || sending) return;
     setSending(true);
     const body = draft.trim();
+    const sentAttachment = attachment;
     setDraft('');
+    setAttachment(null);
     try {
       const res = await fetch(`/api/chat/conversations/${activeId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, clientNonce: `n-${Date.now()}` }),
+        body: JSON.stringify({
+          body: body || `Shared file: ${sentAttachment?.name ?? ''}`.trim(),
+          clientNonce: `n-${Date.now()}`,
+          attachmentDocCode: sentAttachment?.docCode,
+          attachmentFileName: sentAttachment?.name,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setError(data.error ?? 'Message failed to send.');
         setDraft(body);
+        setAttachment(sentAttachment);
         return;
       }
       await loadMessages(activeId);
     } catch {
       setError('Network error — message not sent.');
       setDraft(body);
+      setAttachment(sentAttachment);
     } finally {
       setSending(false);
     }
@@ -345,6 +382,19 @@ export default function ChatWorkspace({ me }: { me: { id: number; fullName: stri
                         </p>
                       )}
                       <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.body}</p>
+                      {m.attachmentDocCode && (
+                        <a
+                          href={`/api/documents/${encodeURIComponent(m.attachmentDocCode)}/download`}
+                          className={`mt-1.5 inline-flex items-center gap-1.5 rounded border px-2 py-1 text-[11px] ${
+                            mine
+                              ? 'border-white/30 bg-white/10 text-white hover:bg-white/20'
+                              : 'border-stone-200 bg-stone-50 text-chalar-800 hover:bg-stone-100'
+                          }`}
+                        >
+                          <Paperclip className="h-3 w-3" aria-hidden />
+                          {m.attachmentFileName ?? 'Attachment'}
+                        </a>
+                      )}
                       <p
                         className={`mt-1 flex items-center justify-end gap-1 text-[10px] ${
                           mine ? 'text-emerald-200' : 'text-stone-400'
@@ -366,7 +416,37 @@ export default function ChatWorkspace({ me }: { me: { id: number; fullName: stri
             </div>
 
             <footer className="border-t border-stone-100 p-3">
+              {attachment && (
+                <div className="mb-2 flex items-center gap-2 rounded-md border border-chalar-200 bg-chalar-50 px-2.5 py-1.5 text-xs text-chalar-800">
+                  <Paperclip className="h-3.5 w-3.5" aria-hidden />
+                  <span className="truncate">{attachment.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAttachment(null)}
+                    className="ml-auto text-chalar-600 hover:text-red-600"
+                    aria-label="Remove attachment"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <div className="flex items-end gap-2">
+                <label
+                  className="btn-secondary h-[52px] cursor-pointer px-3"
+                  title="Attach a private file (max 10 MB, stored outside the web root)"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadFile(f);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -381,7 +461,7 @@ export default function ChatWorkspace({ me }: { me: { id: number; fullName: stri
                   placeholder="Type a private message… (Enter to send, Shift+Enter for new line)"
                   className="input resize-none"
                 />
-                <button onClick={send} disabled={sending || !draft.trim()} className="btn-primary h-[52px] px-4">
+                <button onClick={send} disabled={sending || uploading || (!draft.trim() && !attachment)} className="btn-primary h-[52px] px-4">
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </div>

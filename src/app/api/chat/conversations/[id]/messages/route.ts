@@ -44,6 +44,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         m.body,
         m.message_type AS "messageType",
         m.attachment_file_name AS "attachmentFileName",
+        m.attachment_doc_id AS "attachmentDocId",
+        (SELECT dr.doc_code FROM document_records dr WHERE dr.id = m.attachment_doc_id) AS "attachmentDocCode",
         m.is_edited AS "isEdited",
         m.created_at AS "createdAt",
         m.sender_user_id AS "senderUserId",
@@ -91,6 +93,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
 const sendSchema = z.object({
   body: z.string().min(1, 'Message cannot be empty.').max(4000),
   clientNonce: z.string().max(64).optional(),
+  attachmentDocCode: z.string().max(64).optional(),
+  attachmentFileName: z.string().max(200).optional(),
 });
 
 /**
@@ -132,13 +136,38 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       }
     }
 
+    // If an attachment is referenced, verify it belongs to this conversation and
+    // that the caller may access it — attachments are never free-form paths.
+    let attachmentDocId: number | null = null;
+    let attachmentFileName: string | null = null;
+    if (parsed.data.attachmentDocCode) {
+      const docRows = (await db.execute(sql`
+        SELECT id, original_filename, conversation_id, uploaded_by_user_id
+        FROM document_records WHERE doc_code = ${parsed.data.attachmentDocCode} LIMIT 1;
+      `)) as unknown as {
+        rows: Array<{ id: number; original_filename: string; conversation_id: number | null; uploaded_by_user_id: number }>;
+      };
+      const doc = docRows.rows[0];
+      if (!doc) return jsonError(404, 'Attached document not found.');
+      if (doc.conversation_id !== conversationId) {
+        return jsonError(403, 'That document is not attached to this conversation.');
+      }
+      if (doc.uploaded_by_user_id !== user.id) {
+        return jsonError(403, 'You may only attach documents you uploaded.');
+      }
+      attachmentDocId = doc.id;
+      attachmentFileName = doc.original_filename;
+    }
+
     const inserted = await db
       .insert(t.messages)
       .values({
         conversationId,
         senderUserId: user.id,
         body: parsed.data.body,
-        messageType: 'TEXT',
+        messageType: attachmentDocId ? 'ATTACHMENT' : 'TEXT',
+        attachmentDocId,
+        attachmentFileName,
       })
       .returning();
     const messageId = inserted[0].id;
