@@ -48,7 +48,7 @@ export async function financeKpis() {
         WHERE payment_status IN ('APPROVED','PAID') AND created_at > now() - interval '30 days')::text AS expenses_period,
       (SELECT count(*)::int FROM supplier_invoices
         WHERE payment_status IN ('UNPAID','DISPUTED') AND due_date::date < CURRENT_DATE)::int AS overdue_invoices,
-      (SELECT COALESCE(SUM(total_kes_amount),0) FROM supplier_invoices
+      (SELECT COALESCE(SUM(invoice_amount_kes),0) FROM supplier_invoices
         WHERE payment_status IN ('UNPAID','DISPUTED') AND due_date::date < CURRENT_DATE)::text AS overdue_amount,
       (SELECT count(*)::int FROM expense_records WHERE payment_status = 'PENDING_APPROVAL')::int AS pending_expenses,
       (SELECT COALESCE(SUM(amount_kes + tax_kes),0) FROM expense_records WHERE payment_status = 'PENDING_APPROVAL')::text AS pending_expense_amount,
@@ -150,7 +150,7 @@ export async function payablesAging() {
              WHEN due_date::date <= CURRENT_DATE + 30 THEN 'Due in 30 days'
              ELSE 'Later'
            END AS name,
-           COALESCE(SUM(total_kes_amount),0)::numeric AS value
+           COALESCE(SUM(invoice_amount_kes),0)::numeric AS value
     FROM supplier_invoices
     WHERE payment_status IN ('UNPAID','PART_PAID','DISPUTED')
     GROUP BY 1
@@ -192,7 +192,7 @@ export async function expenseRegister(limit = 15) {
     submittedBy: string | null;
   }>(sql`
     SELECT er.expense_number AS "expenseNumber", er.expense_date AS date, d.name AS department,
-           er.category, er.vendor, er.amount_kes AS amount, er.tax_kes AS tax,
+           er.category, er.vendor_name AS vendor, er.amount_kes AS amount, er.tax_kes AS tax,
            er.payment_status AS status, u.full_name AS "submittedBy"
     FROM expense_records er
     JOIN departments d ON d.id = er.department_id

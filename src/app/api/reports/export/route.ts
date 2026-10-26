@@ -203,7 +203,7 @@ const REPORTS: Record<string, (period?: string) => ReportDef> = {
     ],
     query: sql`
       SELECT er.expense_number AS "expenseNumber", er.expense_date AS date, d.name AS department,
-             er.category, er.vendor, er.amount_kes AS amount, er.tax_kes AS tax,
+             er.category, er.vendor_name AS vendor, er.amount_kes AS amount, er.tax_kes AS tax,
              er.payment_status AS status, u.full_name AS "submittedBy"
       FROM expense_records er
       JOIN departments d ON d.id = er.department_id
@@ -224,12 +224,14 @@ const REPORTS: Record<string, (period?: string) => ReportDef> = {
       { key: 'received', label: 'Received value (KES)' },
     ],
     query: sql`
-      SELECT po.po_number AS "poNumber", s.name AS supplier, po.order_date AS "orderDate",
-             po.expected_delivery_date AS expected, po.total_kes_amount AS total, po.status,
-             COALESCE((SELECT SUM(gr.received_value_kes) FROM goods_receipts gr WHERE gr.purchase_order_id = po.id), 0) AS received
+      SELECT po.po_number AS "poNumber", s.name AS supplier,
+             po.created_at::date::text AS "orderDate",
+             po.expected_delivery_date AS expected, po.total_amount_kes AS total, po.status,
+             COALESCE((SELECT SUM(gr.accepted_qty::numeric * po.unit_price_kes::numeric)
+                         FROM goods_receipts gr WHERE gr.purchase_order_id = po.id), 0) AS received
       FROM purchase_orders po
       JOIN suppliers s ON s.id = po.supplier_id
-      ORDER BY po.order_date::date DESC;
+      ORDER BY po.created_at DESC;
     `,
   }),
   'sales-orders': () => ({
@@ -247,11 +249,11 @@ const REPORTS: Record<string, (period?: string) => ReportDef> = {
     ],
     query: sql`
       SELECT so.order_number AS "orderNumber", c.name AS customer, c.country AS market,
-             so.order_date AS "orderDate", so.requested_delivery_date AS delivery,
-             so.total_kes_amount AS total, so.status, so.incoterm
+             so.created_at::date::text AS "orderDate", so.requested_delivery_date AS delivery,
+             so.total_kes_amount AS total, so.status, c.incoterms AS incoterm
       FROM sales_orders so
       JOIN customers c ON c.id = so.customer_id
-      ORDER BY so.order_date::date DESC;
+      ORDER BY so.created_at DESC;
     `,
   }),
   shipments: () => ({
