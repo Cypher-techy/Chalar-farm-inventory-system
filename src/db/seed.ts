@@ -1745,12 +1745,13 @@ async function seedDemoData(db: ChalarDatabase): Promise<void> {
     const shiftRow = rows<{ id: number }>(
       await db.execute(sql`SELECT id FROM shifts WHERE code = ${shiftCode}`)
     )[0];
-    for (let daysAgo = 1; daysAgo <= 14; daysAgo++) {
+    for (let daysAgo = 0; daysAgo <= 14; daysAgo++) {
       const dateRes = rows<{ d: string }>(
-        await db.execute(sql`SELECT (CURRENT_DATE - ${daysAgo})::text AS d`)
+        await db.execute(sql`SELECT (CURRENT_DATE - ${daysAgo}::int)::text AS d`)
       )[0].d;
       const dow = new Date(dateRes + 'T00:00:00Z').getUTCDay();
       if (dow === 0) continue; // Sunday rest day
+      const isToday = daysAgo === 0;
 
       const r = Math.random();
       let status = 'PRESENT';
@@ -1776,11 +1777,18 @@ async function seedDemoData(db: ChalarDatabase): Promise<void> {
         }
       }
 
+      // Today's shift is still in progress: clocked in, not yet out, hours accrue at close.
+      if (isToday && status !== 'ABSENT') {
+        clockOut = null;
+        reg = '0.00';
+        ot = '0.00';
+      }
+
       await db.execute(sql`
         INSERT INTO attendance_records (employee_id, attendance_date, shift_id, clock_in_at, clock_out_at,
           regular_hours, overtime_hours, late_minutes, status, timesheet_approved, approved_by_user_id)
         VALUES (${emp.id}, ${dateRes}, ${shiftRow.id}, ${clockIn}, ${clockOut},
-          ${reg}, ${ot}, ${late}, ${status}, ${status !== 'ABSENT'}, ${supervisorId})
+          ${reg}, ${ot}, ${late}, ${status}, ${isToday ? false : status !== 'ABSENT'}, ${isToday ? null : supervisorId})
         ON CONFLICT DO NOTHING;
       `);
     }

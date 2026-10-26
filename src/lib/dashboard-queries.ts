@@ -22,7 +22,7 @@ export async function superAdminKpis() {
         (SELECT count(*)::int FROM employee_profiles)::int AS total,
         (SELECT count(*)::int FROM employee_profiles WHERE employment_status = 'ACTIVE')::int AS active,
         (SELECT count(*)::int FROM employee_profiles WHERE employment_status != 'ACTIVE')::int AS inactive,
-        (SELECT count(*)::int FROM attendance_records WHERE attendance_date = CURRENT_DATE AND status IN ('PRESENT','LATE'))::int AS attendance_today,
+        (SELECT count(*)::int FROM attendance_records WHERE attendance_date::date = CURRENT_DATE AND status IN ('PRESENT','LATE'))::int AS attendance_today,
         (SELECT count(*)::int FROM employee_profiles WHERE employment_status = 'ON_LEAVE')::int AS on_leave;
     `),
     one<{ valuation: string; low_stock: number; out_of_stock: number; lots: number }>(sql`
@@ -43,14 +43,14 @@ export async function superAdminKpis() {
       overdue_invoices: number;
     }>(sql`
       SELECT
-        (SELECT COALESCE(SUM(harvested_weight_kg),0) FROM harvest_batches WHERE harvest_date = CURRENT_DATE)::text AS today_harvest,
+        (SELECT COALESCE(SUM(harvested_weight_kg),0) FROM harvest_batches WHERE harvest_date::date = CURRENT_DATE)::text AS today_harvest,
         (SELECT COALESCE(SUM(packed_output_kg),0) FROM packing_orders WHERE created_at > now() - interval '7 days')::text AS week_packed,
         (SELECT count(*)::int FROM purchase_orders WHERE status IN ('APPROVED','ISSUED','PARTIALLY_RECEIVED'))::int AS open_pos,
         (SELECT count(*)::int FROM sales_orders WHERE status NOT IN ('PAID','CANCELLED'))::int AS open_orders,
         (SELECT count(*)::int FROM maintenance_work_orders WHERE status IN ('OPEN','IN_PROGRESS'))::int AS open_wos,
         (SELECT count(*)::int FROM nonconformities WHERE status != 'VERIFIED_CLOSED')::int AS open_ncr,
         (SELECT count(*)::int FROM products WHERE is_active AND physical_stock <= reorder_level)::int AS low_stock_alerts,
-        (SELECT count(*)::int FROM supplier_invoices WHERE payment_status IN ('UNPAID','DISPUTED') AND due_date < CURRENT_DATE)::int AS overdue_invoices;
+        (SELECT count(*)::int FROM supplier_invoices WHERE payment_status IN ('UNPAID','DISPUTED') AND due_date::date < CURRENT_DATE)::int AS overdue_invoices;
     `),
     one<{ pending: number; pending_amount: string; expenses_pending: number; leave_pending: number }>(sql`
       SELECT
@@ -102,7 +102,7 @@ export async function harvestTrend(days = 14) {
     SELECT to_char(harvest_date, 'DD Mon') AS name,
            COALESCE(SUM(harvested_weight_kg), 0)::numeric AS value
     FROM harvest_batches
-    WHERE harvest_date >= CURRENT_DATE - ${days}::int
+    WHERE harvest_date::date >= CURRENT_DATE - ${days}::int
     GROUP BY harvest_date
     ORDER BY harvest_date;
   `)) as unknown as Rows<{ name: string; value: string }>;
@@ -188,7 +188,7 @@ export async function attendanceTrend(days = 14) {
            count(*) FILTER (WHERE status IN ('PRESENT','LATE'))::int AS present,
            count(*) FILTER (WHERE status = 'ABSENT')::int AS absent
     FROM attendance_records
-    WHERE attendance_date >= CURRENT_DATE - ${days}::int
+    WHERE attendance_date::date >= CURRENT_DATE - ${days}::int
     GROUP BY attendance_date
     ORDER BY attendance_date;
   `)) as unknown as Rows<{ name: string; present: number; absent: number }>;

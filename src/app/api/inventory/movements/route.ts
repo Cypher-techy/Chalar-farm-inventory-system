@@ -125,7 +125,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     const parsed = movementSchema.safeParse(body);
     if (!parsed.success) {
-      return jsonError(400, parsed.error.issues[0]?.message ?? 'Invalid movement payload.');
+      const issue = parsed.error.issues[0];
+      const field = issue?.path?.join('.') ?? 'payload';
+      const msg = issue?.message === 'Required' ? `${field} is required.` : issue?.message ?? 'Invalid movement payload.';
+      return jsonError(400, msg);
     }
 
     const idempotencyKey =
@@ -138,14 +141,7 @@ export async function POST(req: NextRequest) {
 
       const result = await db.transaction(async (tx) => {
         const now = new Date();
-        const seqRes = (await tx.execute(
-          sql`SELECT nextval('stock_movements_movement_number_seq') AS n`
-        ).catch(() => null)) as unknown as { rows?: Array<{ n: string }> } | null;
-
-        const movementNumber =
-          seqRes?.rows?.[0]?.n != null
-            ? `SM-${seqRes.rows[0].n}`
-            : `SM-${Date.now()}-${Math.floor(Math.random() * 900 + 100)}`;
+        const movementNumber = `SM-${Date.now()}-${Math.floor(Math.random() * 90000 + 10000)}`;
 
         let unitCost = '0.00';
         if (data.movementType === 'RECEIPT') {
@@ -271,7 +267,7 @@ export async function POST(req: NextRequest) {
         ipAddress: ip,
       });
 
-      return { body: jsonOk({ movement: result }) };
+      return { status: 201, body: { ok: true, movement: result } };
     });
 
     return new Response(JSON.stringify(outcome.body), {
