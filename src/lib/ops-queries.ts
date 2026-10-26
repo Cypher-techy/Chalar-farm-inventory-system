@@ -176,7 +176,7 @@ export async function procurementKpis() {
       (SELECT count(*)::int FROM supplier_invoices WHERE three_way_match_status != 'MATCHED')::int AS match_exceptions,
       (SELECT count(*)::int FROM supplier_invoices WHERE payment_status = 'UNPAID' AND due_date::date < CURRENT_DATE)::int AS overdue_invoices,
       (SELECT COALESCE(SUM(invoice_amount_kes),0) FROM supplier_invoices WHERE payment_status IN ('UNPAID','DISPUTED'))::text AS payables_value,
-      (SELECT count(*)::int FROM suppliers WHERE is_active)::int AS active_suppliers,
+      (SELECT count(*)::int FROM suppliers WHERE qualification_status = 'APPROVED')::int AS active_suppliers,
       (SELECT count(*)::int FROM goods_receipts WHERE rejected_qty > 0 AND received_at > now() - interval '30 days')::int AS receipts_with_rejects;
   `);
 }
@@ -594,9 +594,10 @@ export async function teamWorkspace(userId: number) {
 export async function auditTrail(limit = 60, actorEmail?: string, module?: string) {
   const db = await getDb();
   const res = (await db.execute(sql`
-    SELECT al.created_at AS "createdAt", al.actor_email AS actor, al.action, al.module,
+    SELECT al.created_at AS "createdAt", al.actor_email AS actor, al.actor_role AS "actorRole",
+           al.action, al.module,
            al.entity_type AS "entityType", al.entity_id AS "entityId", al.summary,
-           al.ip_address AS ip, al.user_agent AS "userAgent"
+           al.ip_address AS ip
     FROM audit_logs al
     WHERE ${actorEmail ? sql`al.actor_email = ${actorEmail}` : sql`TRUE`}
       AND ${module ? sql`al.module = ${module}` : sql`TRUE`}
