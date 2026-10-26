@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { login, SESSION_COOKIE_NAME } from '@/lib/auth';
+import { clientIp, jsonError, jsonOk, rateLimit } from '@/lib/guards';
+
+const loginSchema = z.object({
+  email: z.string().email('Enter a valid email address.'),
+  password: z.string().min(1, 'Password is required.'),
+});
+
+export async function POST(req: NextRequest) {
+  try {
+    const ip = clientIp(req);
+    rateLimit(`login:${ip}`, 8, 60_000);
+    rateLimit(`login-global`, 60, 60_000);
+
+    const body = await req.json().catch(() => null);
+    const parsed = loginSchema.safeParse(body);
+    if (!parsed.success) {
+      return jsonError(400, parsed.error.issues[0]?.message ?? 'Invalid input.');
+    }
+
+    const result = await login(parsed.data.email, parsed.data.password, {
+      ipAddress: ip,
+      userAgent: req.headers.get('user-agent') ?? undefined,
+    });
+
+    if (!result.ok || !result.token || !result.user) {
+      return jsonError(result.error === 'Account temporarily locked due to repeated failed attempts.' || (result.lockoutMinutes ?? 0) > 0 ? 423 : 401, result.error ?? 'Login failed.');
+    }
+
+    const res = jsonOk({ user: result.user });
+    res.cookies.set(SESSION_COOKIE_NAME, result.token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: Number(process.env.SESSION_TTL_HOURS || 12) * 3600,
+    });
+    return res;
+  } catch (err) {
+    console.error('login error', err);
+    return jsonError(500, 'An unexpected error occurred during sign-in.');
+  }
+}

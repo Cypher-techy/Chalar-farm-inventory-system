@@ -6,6 +6,8 @@ import { getDb } from '@/db';
 import * as t from '@/db/schema';
 import type { SessionUser } from './auth';
 
+type DocumentRecord = typeof t.documentRecords.$inferSelect;
+
 /**
  * Private document storage.
  * Files live OUTSIDE the public web root and are only retrievable through
@@ -120,7 +122,7 @@ export async function storePrivateDocument(params: {
 export async function canAccessDocument(
   requester: SessionUser,
   docIdOrCode: number | string
-): Promise<{ allowed: boolean; reason: string; document?: t.DocumentRecord }> {
+): Promise<{ allowed: boolean; reason: string; document?: DocumentRecord }> {
   const db = await getDb();
   const docRows =
     typeof docIdOrCode === 'number'
@@ -170,7 +172,7 @@ export async function canAccessDocument(
   return { allowed: false, reason: 'Not authorized for this document.', document: doc };
 }
 
-export async function readDocumentBytes(doc: t.DocumentRecord): Promise<Buffer> {
+export async function readDocumentBytes(doc: DocumentRecord): Promise<Buffer> {
   const fullPath = path.join(storageRoot(), doc.storageKey);
   const data = await fs.readFile(fullPath);
   const checksum = createHash('sha256').update(data).digest('hex');

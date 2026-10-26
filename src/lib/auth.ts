@@ -244,7 +244,7 @@ export async function revokeAllUserSessions(userId: number, reason: string): Pro
     .update(t.sessions)
     .set({ revokedAt: new Date(), revokedReason: reason })
     .where(and(eq(t.sessions.userId, userId), isNull(t.sessions.revokedAt)));
-  return res.rowCount ?? 0;
+  return (res as { rowCount?: number }).rowCount ?? 0;
 }
 
 export function hasPermission(user: SessionUser | null, permissionCode: string): boolean {
