@@ -5,14 +5,93 @@
 :root {
   --chalar-forest: #183b2a;
   --chalar-green: #2b6f4a;
+  --chalar-clay: #ea9072;
+
+  /* Type system: Inter Variable for UI/body, Fraunces Variable for display.
+     Both are self-hosted (see src/app/layout.tsx). */
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Fraunces Variable', 'Fraunces', Georgia, Cambria, 'Times New Roman', serif;
 }
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  @apply bg-stone-50 text-stone-800 antialiased;
+  @apply bg-stone-50 font-sans text-stone-800 antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(234, 144, 114, 0.28);
+  color: #0d2117;
+}
+
+/* Tabular figures everywhere numbers matter (ERP tables, KPIs, payslips) */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Editorial type utilities ---------- */
+.kicker {
+  @apply text-[11px] font-semibold uppercase tracking-kicker;
+}
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 0.98;
+  letter-spacing: -0.022em;
+  font-variation-settings: 'opsz' 120;
+  text-wrap: balance;
+}
+.display-xl {
+  font-size: clamp(2.6rem, 8.2vw, 6.25rem);
+}
+.display-lg {
+  font-size: clamp(2.1rem, 5vw, 3.75rem);
+}
+.display-md {
+  font-size: clamp(1.65rem, 3.2vw, 2.5rem);
+  font-variation-settings: 'opsz' 60;
+}
+.lede {
+  @apply text-base leading-relaxed text-stone-600 sm:text-lg sm:leading-relaxed;
+  text-wrap: pretty;
+}
+
+/* Hairline rule that fades at both ends — used as a section divider */
+.hairline {
+  height: 1px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(13, 33, 23, 0.18) 18%,
+    rgba(13, 33, 23, 0.18) 82%,
+    transparent
+  );
+}
+.hairline-light {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.22) 18%,
+    rgba(255, 255, 255, 0.22) 82%,
+    transparent
+  );
+}
+
+/* Fine film grain, adds depth to large flat dark sections (pointer-events: none) */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* ---------- Scroll reveal system (Intersection Observer driven) ---------- */
@@ -20,31 +99,68 @@ body {
   opacity: 0;
   transform: translateY(18px);
   transition:
-    opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
 }
 .reveal.revealed {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* Line-mask headline reveal: each line rises out of its own clipped mask. */
+.mask-lines .mask-line {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.06em;
+  margin-bottom: -0.06em;
+}
+.mask-lines .mask-line > span {
+  display: block;
+  opacity: 0;
+  transform: translate3d(0, 110%, 0);
+  transition:
+    transform 1s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.8s ease;
+  will-change: transform, opacity;
+}
+.mask-lines.revealed .mask-line > span {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+.mask-lines.revealed .mask-line:nth-child(2) > span { transition-delay: 0.09s; }
+.mask-lines.revealed .mask-line:nth-child(3) > span { transition-delay: 0.18s; }
+.mask-lines.revealed .mask-line:nth-child(4) > span { transition-delay: 0.27s; }
+.mask-lines.revealed .mask-line:nth-child(5) > span { transition-delay: 0.36s; }
+
 .reveal-image {
   clip-path: inset(0 0 12% 0);
   opacity: 0;
   transition:
-    clip-path 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.7s ease;
+    clip-path 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.8s ease;
 }
 .reveal-image.revealed {
   clip-path: inset(0 0 0 0);
   opacity: 1;
 }
+
+/* Wipe-in for rules and rails */
+.reveal-rule {
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-rule.revealed {
+  transform: scaleX(1);
+}
+
 .stagger > * {
   opacity: 0;
   transform: translateY(14px);
   transition:
-    opacity 0.5s ease,
-    transform 0.5s ease;
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .stagger.revealed > * {
   opacity: 1;
@@ -61,39 +177,163 @@ body {
 .stagger.revealed > *:nth-child(9) { transition-delay: 560ms; }
 .stagger.revealed > *:nth-child(10) { transition-delay: 630ms; }
 
+/* ---------- Infinite marquee (duplicated track, pauses on hover/focus) ---------- */
+.marquee {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-x var(--marquee-duration, 48s) linear infinite;
+  will-change: transform;
+}
+.marquee-track[data-direction='reverse'] {
+  animation-direction: reverse;
+}
+.marquee:hover .marquee-track,
+.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+@keyframes marquee-x {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* ---------- Draggable rail (drag-to-scroll carousels) ---------- */
+.drag-rail {
+  cursor: grab;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+}
+.drag-rail::-webkit-scrollbar {
+  display: none;
+}
+.drag-rail > * {
+  scroll-snap-align: start;
+}
+.drag-rail.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+  user-select: none;
+}
+.drag-rail.is-dragging img {
+  pointer-events: none;
+}
+
+/* ---------- Sticky journey rail ---------- */
+.journey-rail {
+  position: relative;
+}
+.journey-step[data-active='true'] .journey-dot {
+  @apply border-clay-400 bg-clay-400 text-chalar-950;
+  box-shadow: 0 0 0 6px rgba(234, 144, 114, 0.18);
+}
+.journey-step[data-active='true'] .journey-title {
+  @apply text-white;
+}
+.journey-step .journey-body {
+  @apply text-stone-400 transition-colors duration-300;
+}
+.journey-step[data-active='true'] .journey-body {
+  @apply text-stone-200;
+}
+
+/* ---------- Pointer parallax layers ---------- */
+.parallax-layer {
+  will-change: transform;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.float-soft {
+  animation: drift 7s ease-in-out infinite;
+}
+.float-soft-slow {
+  animation: drift 11s ease-in-out infinite;
+}
+.ken-burns {
+  animation: kenburns 24s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -10px, 0); }
+}
+@keyframes kenburns {
+  0% { transform: scale(1.02) translate3d(0, 0, 0); }
+  100% { transform: scale(1.12) translate3d(0, -1.5%, 0); }
+}
+
+/* ---------- Link underline sweep ---------- */
+.link-sweep {
+  position: relative;
+}
+.link-sweep::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.link-sweep:hover::after,
+.link-sweep:focus-visible::after,
+.link-sweep[data-active='true']::after {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
   .reveal,
   .reveal-image,
+  .reveal-rule,
+  .mask-lines .mask-line > span,
   .stagger > * {
     transition: none !important;
     opacity: 1 !important;
     transform: none !important;
     clip-path: none !important;
   }
+  .marquee-track,
+  .float-soft,
+  .float-soft-slow,
+  .ken-burns {
+    animation: none !important;
+  }
+  .parallax-layer {
+    transition: none !important;
+  }
 }
 
 /* ---------- ERP shell primitives ---------- */
 @layer components {
   .kpi-card {
-    @apply rounded-lg border border-stone-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md;
+    @apply rounded-xl border border-stone-200/80 bg-white p-4 shadow-card transition-all duration-300 ease-editorial hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-lift;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-chalar-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3.5 py-2 text-sm font-medium transition-all duration-200 ease-editorial focus:outline-none focus-visible:ring-2 focus-visible:ring-chalar-500 focus-visible:ring-offset-1 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-chalar-700 text-white hover:bg-chalar-800;
+    @apply btn bg-chalar-700 text-white shadow-sm hover:bg-chalar-800;
   }
   .btn-secondary {
-    @apply btn border border-stone-300 bg-white text-stone-700 hover:bg-stone-100;
+    @apply btn border border-stone-300 bg-white text-stone-700 hover:border-stone-400 hover:bg-stone-100;
   }
   .btn-danger {
     @apply btn bg-red-700 text-white hover:bg-red-800;
   }
   .input {
-    @apply w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder-stone-400 focus:border-chalar-600 focus:outline-none focus:ring-1 focus:ring-chalar-600;
+    @apply w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 placeholder-stone-400 transition-colors duration-200 focus:border-chalar-600 focus:outline-none focus:ring-1 focus:ring-chalar-600;
   }
   .label {
     @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500;
@@ -102,13 +342,13 @@ body {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
   }
   .card {
-    @apply rounded-lg border border-stone-200 bg-white shadow-sm;
+    @apply rounded-xl border border-stone-200/80 bg-white shadow-card;
   }
   .table-base {
     @apply w-full border-collapse text-left text-sm;
   }
   .table-base thead th {
-    @apply border-b border-stone-200 bg-stone-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-stone-500;
+    @apply border-b border-stone-200 bg-stone-100/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-stone-500;
   }
   .table-base tbody td {
     @apply border-b border-stone-100 px-3 py-2.5 align-middle;
@@ -130,7 +370,7 @@ body {
   }
 }
 .animate-kpi {
-  animation: fade-up-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: fade-up-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @keyframes badge-pop {
   0% { transform: scale(0.6); }
@@ -156,17 +396,15 @@ body {
   }
 }
 
-/* Subtle hero parallax layer */
-.parallax-layer {
-  will-change: transform;
-  transition: transform 0.1s linear;
-}
-
 /* Custom scrollbar for chat panes */
 .thin-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 .thin-scrollbar::-webkit-scrollbar-thumb {
   background: #d6d3d1;
   border-radius: 3px;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a29e;
 }

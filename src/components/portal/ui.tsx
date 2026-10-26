@@ -30,7 +30,7 @@ export function PageHeader({
       )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-serif text-2xl font-bold text-stone-900">{title}</h1>
+          <h1 className="display text-[1.75rem] text-stone-900">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-stone-500">{subtitle}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -92,8 +92,8 @@ export function KPICard({
   }[tone];
   const inner = (
     <div className={`kpi-card animate-kpi border-l-4 ${toneRing}`} style={{ animationDelay: `${delayIndex * 60}ms` }}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{label}</p>
-      <p className="mt-1.5 font-serif text-2xl font-bold tabular-nums text-stone-900">{value}</p>
+      <p className="kicker text-[10px] text-stone-500">{label}</p>
+      <p className="display mt-2 text-[1.75rem] text-stone-900 tnum">{value}</p>
       {sub && <p className="mt-1 text-xs text-stone-400">{sub}</p>}
     </div>
   );
@@ -115,7 +115,7 @@ export function Card({
     <section className={`card ${className}`}>
       {(title || action) && (
         <header className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
-          {title && <h2 className="text-sm font-semibold text-stone-700">{title}</h2>}
+          {title && <h2 className="text-sm font-semibold tracking-tight text-stone-800">{title}</h2>}
           {action}
         </header>
       )}
