@@ -89,17 +89,45 @@ async function createDatabaseConnection(): Promise<ChalarDatabase> {
     const rawPath = dbUrl.replace(/^pglite:\/\//, '');
     const resolvedDir = path.resolve(process.cwd(), rawPath);
     fs.mkdirSync(path.dirname(resolvedDir), { recursive: true });
-    try {
-      client = new PGlite(resolvedDir);
-    } catch {
-      // Fallback to in-memory PGlite if secondary build worker hits directory lock
-      client = new PGlite();
-    }
+    client = new PGlite(resolvedDir);
   }
 
   globalThis.__chalarPgliteClient = client;
   const db = drizzlePglite(client, { schema });
-  await applySchemaMigrations(db);
+
+  try {
+    await applySchemaMigrations(db);
+  } catch (err) {
+    // PGlite is an embedded single-process database. If a previous process was
+    // killed (dev-server restart, crashed script) it can leave a stale
+    // postmaster lock behind, which makes the first query fail. Clear the stale
+    // lock files and retry once rather than serving a dead database.
+    const msg = err instanceof Error ? err.message : String(err);
+    const dataDir = isMemory ? null : path.resolve(process.cwd(), dbUrl.replace(/^pglite:\/\//, ''));
+    if (dataDir && fs.existsSync(dataDir)) {
+      const stale = ['postmaster.pid', '.s.PGSQL.5432', '.s.PGSQL.5432.lock', '.s.PGSQL.5432.lock.out'];
+      for (const f of stale) {
+        const p = path.join(dataDir, f);
+        if (fs.existsSync(p)) {
+          try {
+            fs.rmSync(p, { force: true });
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      const retryClient = new PGlite(dataDir);
+      globalThis.__chalarPgliteClient = retryClient;
+      const retryDb = drizzlePglite(retryClient, { schema });
+      await applySchemaMigrations(retryDb);
+      console.warn(
+        `[chalar-db] Cleared a stale PGlite lock and reconnected (first attempt failed: ${msg.slice(0, 120)}).`
+      );
+      return retryDb;
+    }
+    throw err;
+  }
+
   return db;
 }
 

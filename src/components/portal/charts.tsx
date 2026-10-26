@@ -20,7 +20,6 @@ const PALETTE = ['#2b6f4a', '#3d8b5f', '#62a87f', '#94c7a8', '#f59e0b', '#0ea5e9
 
 interface XY {
   name: string;
-  value: number;
   [k: string]: string | number;
 }
 
