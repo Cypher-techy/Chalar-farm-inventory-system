@@ -95,11 +95,19 @@ export async function GET(req: NextRequest) {
         (r) => ({ title: String(r.ncr_number), subtitle: `Non-conformity · ${r.status}`, href: '/portal/qa' })
       );
     }
-    if (perms.has('dashboard.hr') || perms.has('workspace.supervisor')) {
+    if (perms.has('hr.manage') || perms.has('hr.sensitive')) {
       await run(
         sql`SELECT employee_code, full_name, job_title FROM employee_profiles
              WHERE (employee_code ILIKE ${pattern} OR full_name ILIKE ${pattern}) LIMIT 5`,
         (r) => ({ title: String(r.full_name), subtitle: `Employee · ${r.employee_code} · ${r.job_title}`, href: '/portal/hr' })
+      );
+    } else if (perms.has('workspace.supervisor')) {
+      // Supervisors may only find employees who report to them
+      await run(
+        sql`SELECT employee_code, full_name, job_title FROM employee_profiles
+             WHERE supervisor_user_id = ${user.id}
+               AND (employee_code ILIKE ${pattern} OR full_name ILIKE ${pattern}) LIMIT 5`,
+        (r) => ({ title: String(r.full_name), subtitle: `Your team · ${r.employee_code} · ${r.job_title}`, href: '/portal/workspaces' })
       );
     } else if (perms.has('workspace.self_service')) {
       await run(

@@ -14,15 +14,15 @@ export async function GET(req: NextRequest) {
     await requirePermission(req, 'payroll.view');
     const db = await getDb();
     const runs = (await db.execute(sql`
-      SELECT run_code AS "runCode", period_month AS "periodMonth", pay_date AS "payDate",
-             statutory_version_code AS "statutoryVersionCode", employee_count AS "employeeCount",
-             total_gross_kes AS "totalGrossKes", total_paye_kes AS "totalPayeKes",
-             total_nssf_employee_kes AS "totalNssfKes", total_shif_kes AS "totalShifKes",
-             total_housing_levy_kes AS "totalHousingLevyKes", total_net_pay_kes AS "totalNetKes",
-             status, prepared_by_user_id AS "preparedByUserId",
-             approved_by_user_id AS "approvedByUserId", approved_at AS "approvedAt",
+      SELECT pr.run_code AS "runCode", pr.period_month AS "periodMonth", pr.pay_date AS "payDate",
+             pr.statutory_version_code AS "statutoryVersionCode", pr.employee_count AS "employeeCount",
+             pr.total_gross_kes AS "totalGrossKes", pr.total_paye_kes AS "totalPayeKes",
+             pr.total_nssf_employee_kes AS "totalNssfKes", pr.total_shif_kes AS "totalShifKes",
+             pr.total_housing_levy_kes AS "totalHousingLevyKes", pr.total_net_pay_kes AS "totalNetKes",
+             pr.status AS status, pr.prepared_by_user_id AS "preparedByUserId",
+             pr.approved_by_user_id AS "approvedByUserId", pr.approved_at AS "approvedAt",
              pu.full_name AS "preparedByName", au.full_name AS "approvedByName",
-             created_at AS "createdAt"
+             pr.created_at AS "createdAt"
       FROM payroll_runs pr
       LEFT JOIN users pu ON pu.id = pr.prepared_by_user_id
       LEFT JOIN users au ON au.id = pr.approved_by_user_id

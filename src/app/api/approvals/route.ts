@@ -91,8 +91,11 @@ export async function POST(req: NextRequest) {
       return jsonError(409, `This request was already ${approval.status.toLowerCase()}.`);
     }
 
-    // Role must match an assigned role of the actor (least privilege)
-    if (!user.roleCodes.includes(approval.assignedRoleCode)) {
+    // Role must match an assigned role of the actor (least privilege).
+    // The Super Administrator holds every permission and may decide any routed
+    // approval — segregation of duties below still forbids deciding their own.
+    const isSuperAdmin = user.roleCodes.includes('SUPER_ADMIN');
+    if (!isSuperAdmin && !user.roleCodes.includes(approval.assignedRoleCode)) {
       await recordAuditLog({
         actor: user,
         action: 'APPROVAL_UNAUTHORIZED_ATTEMPT',

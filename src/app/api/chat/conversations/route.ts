@@ -114,23 +114,19 @@ export async function POST(req: NextRequest) {
       return jsonError(400, 'Select a recipient for the conversation.');
     }
 
-    // Authorization: policy enforced server-side
+    // Authorization: policy enforced server-side, using target roles read from the database
     if (data.conversationType === 'DIRECT_PRIVATE' && targetIds.length === 1) {
-      const check = canInitiateDirect(user, targetIds[0]);
+      const targetRoles = (await db.execute(sql`
+        SELECT r.code FROM user_roles ur
+        JOIN roles r ON r.id = ur.role_id
+        WHERE ur.user_id = ${targetIds[0]}
+      `)) as unknown as { rows: Array<{ code: string | null }> };
+      const check = canInitiateDirect(
+        user,
+        targetIds[0],
+        targetRoles.rows.map((r) => String(r.code ?? ''))
+      );
       if (!check.allowed) return jsonError(403, check.reason ?? 'Not allowed.');
-      // Non-super-admin users may target super admins only (escalation path)
-      if (!user.permissions.includes('communications.initiate_any')) {
-        const targetRoles = (await db.execute(sql`
-          SELECT r.code FROM users u
-          LEFT JOIN user_roles ur ON ur.user_id = u.id
-          LEFT JOIN roles r ON r.id = ur.role_id
-          WHERE u.id = ${targetIds[0]}
-        `)) as unknown as { rows: Array<{ code: string | null }> };
-        const targetIsSuper = targetRoles.rows.some((r) => r.code === 'SUPER_ADMIN');
-        if (!targetIsSuper) {
-          return jsonError(403, check.reason ?? 'Not allowed.');
-        }
-      }
     } else if (!user.permissions.includes('communications.initiate_any')) {
       return jsonError(403, 'Only authorized administrators can create group or dashboard-channel conversations.');
     }

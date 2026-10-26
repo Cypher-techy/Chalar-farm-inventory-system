@@ -101,22 +101,26 @@ export async function unreadMessageCount(userId: number): Promise<number> {
 }
 
 /** Determine whether userA may open a new direct conversation with userB. */
-export function canInitiateDirect(user: SessionUser, targetUserId: number): {
-  allowed: boolean;
-  reason?: string;
-} {
+/**
+ * Direct-conversation initiation policy (enforced server-side on every attempt):
+ *  - nobody may open a thread with themselves;
+ *  - holders of `communications.initiate_any` (Super Admin) may open a thread with anyone;
+ *  - any active user may escalate by opening a thread with a Super Administrator;
+ *  - everyone else may only reply inside conversations they already belong to.
+ * `targetRoleCodes` must be supplied by the caller from the database — never from the client.
+ */
+export function canInitiateDirect(
+  user: SessionUser,
+  targetUserId: number,
+  targetRoleCodes: string[] = []
+): { allowed: boolean; reason?: string } {
   if (user.id === targetUserId) {
     return { allowed: false, reason: 'You cannot start a conversation with yourself.' };
   }
-  // Super Admin (or any holder of the explicit cross-dashboard permission)
-  // may open a private conversation with any user.
   if (user.permissions.includes('communications.initiate_any')) {
     return { allowed: true };
   }
-  // Any active user may initiate a direct conversation with the Super Admin
-  // (documented escalation path).
-  if (user.roleCodes.includes('SUPER_ADMIN')) {
-    // target is checked by caller; super admin allowed by default above
+  if (targetRoleCodes.includes('SUPER_ADMIN')) {
     return { allowed: true };
   }
   return {

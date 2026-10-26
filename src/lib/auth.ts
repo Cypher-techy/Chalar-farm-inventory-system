@@ -244,7 +244,9 @@ export async function revokeAllUserSessions(userId: number, reason: string): Pro
     .update(t.sessions)
     .set({ revokedAt: new Date(), revokedReason: reason })
     .where(and(eq(t.sessions.userId, userId), isNull(t.sessions.revokedAt)));
-  return (res as { rowCount?: number }).rowCount ?? 0;
+  // node-postgres reports rowCount; PGlite reports affectedRows
+  const r = res as { rowCount?: number; affectedRows?: number };
+  return r.rowCount ?? r.affectedRows ?? 0;
 }
 
 export function hasPermission(user: SessionUser | null, permissionCode: string): boolean {

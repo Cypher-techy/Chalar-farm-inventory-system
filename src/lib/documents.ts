@@ -6,7 +6,7 @@ import { getDb } from '@/db';
 import * as t from '@/db/schema';
 import type { SessionUser } from './auth';
 
-type DocumentRecord = typeof t.documentRecords.$inferSelect;
+export type DocumentRecord = typeof t.documentRecords.$inferSelect;
 
 /**
  * Private document storage.
