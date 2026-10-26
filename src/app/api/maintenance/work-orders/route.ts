@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import * as t from '@/db/schema';
-import { requirePermission, jsonOk, jsonError, clientIp, rateLimit } from '@/lib/guards';
+import { ApiError, requirePermission, jsonOk, jsonError, clientIp, rateLimit } from '@/lib/guards';
 import { recordAuditLog } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
       message: `Work order ${workOrderNo} raised against ${asset.rows[0].asset_tag} (${asset.rows[0].name}).`,
     });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('work order POST', e);
@@ -221,6 +222,7 @@ export async function PATCH(req: NextRequest) {
 
     return jsonOk({ message: `Work order ${order.work_order_no} completed and asset record updated.` });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     const msg = e instanceof Error ? e.message : '';

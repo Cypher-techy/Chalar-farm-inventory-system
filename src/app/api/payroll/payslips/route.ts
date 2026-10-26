@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { requireAuth, jsonOk, jsonError } from '@/lib/guards';
+import { ApiError, requireAuth, jsonOk, jsonError } from '@/lib/guards';
 import { hasPermission } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
 
     return jsonOk({ payslips: rows.rows, scope: canSeeAll ? 'all' : 'self' });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('payslips GET', e);

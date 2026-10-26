@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { requireAuth, jsonError } from '@/lib/guards';
+import { ApiError, requireAuth, jsonError } from '@/lib/guards';
 import { hasPermission, recordAuditLog } from '@/lib/auth';
 import { buildPdf } from '@/lib/pdf';
 
@@ -120,6 +120,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ number: str
       },
     });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('payslip pdf', e);

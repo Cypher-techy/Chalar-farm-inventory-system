@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { login, SESSION_COOKIE_NAME } from '@/lib/auth';
-import { clientIp, jsonError, jsonOk, rateLimit } from '@/lib/guards';
+import { ApiError, clientIp, jsonError, jsonOk, rateLimit } from '@/lib/guards';
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email address.'),
@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
     });
     return res;
   } catch (err) {
+    // Rate limiting and lockout surface their real status codes (429 / 423)
+    if (err instanceof ApiError) return jsonError(err.status, err.message);
     console.error('login error', err);
     return jsonError(500, 'An unexpected error occurred during sign-in.');
   }

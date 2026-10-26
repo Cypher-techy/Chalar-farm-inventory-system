@@ -30,6 +30,10 @@ loader and Drizzle's `require` of `pg`. They do not affect the emitted output.
 | Role redirect on `/portal` | 307 → role's own dashboard |
 | Cross-dashboard access (HR → Super Admin page) | 307 redirect away |
 | All 14 dashboards as Super Admin | 200 each |
+| All 16 demo roles: login → own dashboard | 200 for every role (farm, inventory, HR, finance, payroll, packhouse, QA, procurement, sales, logistics, maintenance, executive, supervisor, auditor, employee, super admin) |
+| Cross-module access matrix (7 probes: farm→finance, inventory→HR, QA→user admin, employee→inventory, auditor→finance, supervisor→sales, logistics→packhouse) | 307 redirect on all 7 |
+| Login rate limiting | 429 with a clear retry message after the configured window |
+| Invalid credentials | 401; unknown email 401 (no account enumeration); locked account 423 |
 | Stock receipt → issue → transfer, over-issue | Posted; over-issue refused 409, stock unchanged |
 | Idempotent replay of a receipt | Same movement number, no double-post |
 | Harvest recorded → packhouse run → QA inspection → QA release | Lot chain created; quarantined until released |
@@ -94,7 +98,8 @@ and redirects unauthorized users; every API route re-checks independently.
 - Exports: CSV formula-injection escaping, BOM, `no-store`; PDF generated server-side; every export
   writes an audit entry naming the actor and row count.
 - Rate limiting on login, chat sends, uploads and write endpoints; input validation with Zod on every
-  mutation.
+  mutation. `ApiError` status codes (429 rate limit, 423 lockout, 409 conflict) propagate to the
+  client instead of collapsing into a 500.
 
 ---
 

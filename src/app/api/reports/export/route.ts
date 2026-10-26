@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql, type SQL } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { requireAuth, escapeCsvCell, jsonError } from '@/lib/guards';
+import { ApiError, requireAuth, escapeCsvCell, jsonError } from '@/lib/guards';
 import { hasPermission, recordAuditLog } from '@/lib/auth';
 import { buildPdf, type PdfTable } from '@/lib/pdf';
 
@@ -463,6 +463,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('report export', e);

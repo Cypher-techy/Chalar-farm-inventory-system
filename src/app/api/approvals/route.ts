@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq, desc } from 'drizzle-orm';
 import { getDb } from '@/db';
 import * as t from '@/db/schema';
-import { requireAuth, jsonOk, jsonError, clientIp, rateLimit } from '@/lib/guards';
+import { ApiError, requireAuth, jsonOk, jsonError, clientIp, rateLimit } from '@/lib/guards';
 import { recordAuditLog } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
 
     return jsonOk({ approvals: visible, canDecideRoles: user.roleCodes });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('approvals GET', e);
@@ -268,6 +269,7 @@ export async function POST(req: NextRequest) {
 
     return jsonOk({ message: `Request ${decision.toLowerCase()}.`, code });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('approvals POST', e);

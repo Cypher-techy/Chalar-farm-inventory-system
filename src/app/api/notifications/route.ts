@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import * as t from '@/db/schema';
-import { requireAuth, jsonOk, jsonError } from '@/lib/guards';
+import { ApiError, requireAuth, jsonOk, jsonError } from '@/lib/guards';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       .limit(30);
     return jsonOk({ notifications });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('notifications GET', e);
@@ -54,6 +55,7 @@ export async function PATCH(req: NextRequest) {
     }
     return jsonError(400, 'Unknown action.');
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('notifications PATCH', e);

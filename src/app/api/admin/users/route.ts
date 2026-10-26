@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import * as t from '@/db/schema';
-import { requirePermission, jsonOk, jsonError, clientIp, rateLimit } from '@/lib/guards';
+import { ApiError, requirePermission, jsonOk, jsonError, clientIp, rateLimit } from '@/lib/guards';
 import { recordAuditLog, hashPassword, recordSecurityEvent } from '@/lib/auth';
 import { INITIAL_SYSTEM_ROLES } from '@/lib/rbac-catalog';
 
@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
 
     return jsonOk({ users: users.rows, roles, counts: counts.rows[0] });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('admin users GET', e);
@@ -169,6 +170,7 @@ export async function POST(req: NextRequest) {
       message: `${action === 'USER_CREATED' ? 'Created' : 'Reset and reactivated'} ${d.email} with role(s) ${d.roleCodes.join(', ')}. Share the temporary password out of band and require the user to change it at first login.`,
     });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('admin users POST', e);

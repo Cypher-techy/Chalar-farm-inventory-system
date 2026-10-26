@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { requireAuth, jsonOk, jsonError } from '@/lib/guards';
+import { ApiError, requireAuth, jsonOk, jsonError } from '@/lib/guards';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,6 +127,7 @@ export async function GET(req: NextRequest) {
     // message content must never leak outside authorized conversation members.
     return jsonOk({ results: results.slice(0, 20) });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('search error', e);

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import * as t from '@/db/schema';
-import { requirePermission, jsonOk, jsonError, clientIp, rateLimit, withIdempotency } from '@/lib/guards';
+import { ApiError, requirePermission, jsonOk, jsonError, clientIp, rateLimit, withIdempotency } from '@/lib/guards';
 import { recordAuditLog } from '@/lib/auth';
 import { computePayrollRun } from '@/lib/payroll-service';
 
@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
     `)) as unknown as { rows: unknown[] };
     return jsonOk({ runs: runs.rows });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     console.error('payroll runs GET', e);
@@ -163,6 +164,7 @@ export async function POST(req: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (e) {
+    if (e instanceof ApiError) return jsonError(e.status, e.message);
     const err = e as { status?: number; message?: string };
     if (err.status) return jsonError(err.status, err.message ?? 'Error');
     const msg = e instanceof Error ? e.message : 'Unknown error';
