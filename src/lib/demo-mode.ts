@@ -2,19 +2,13 @@
  * Whether clearly-labelled demo data (including the *.demo staff accounts,
  * whose passwords are published in this repository) may be seeded and used.
  *
- *  - ENABLE_DEMO_SEED=false always disables it.
- *  - On a Vercel *production* deployment it is disabled even if
- *    ENABLE_DEMO_SEED=true was copied over from a development .env, unless
- *    ALLOW_DEMO_SEED_IN_PRODUCTION=true is set deliberately.
- *  - Otherwise ENABLE_DEMO_SEED=true enables it, and the default is "on
- *    everywhere except NODE_ENV=production".
+ * The portal runs as a REAL system by default: demo data is strictly opt-in
+ * (ENABLE_DEMO_SEED=true) and is never allowed on a Vercel production
+ * deployment, whatever the environment variables say.
  */
 export function isDemoSeedEnabled(): boolean {
-  const flag = process.env.ENABLE_DEMO_SEED;
-  if (flag === 'false') return false;
-  if (process.env.VERCEL_ENV === 'production' && process.env.ALLOW_DEMO_SEED_IN_PRODUCTION !== 'true') return false;
-  if (flag === 'true') return true;
-  return process.env.NODE_ENV !== 'production';
+  if (process.env.VERCEL_ENV === 'production') return false;
+  return process.env.ENABLE_DEMO_SEED === 'true';
 }
 
 /** Demo staff accounts use this reserved domain. */

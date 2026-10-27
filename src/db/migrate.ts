@@ -1,6 +1,6 @@
 /**
  * Command-line database setup: applies pending migrations, seeds system
- * configuration (plus demo data when ENABLE_DEMO_SEED allows) and creates the
+ * configuration (plus demo data only when ENABLE_DEMO_SEED=true) and creates the
  * first Super Administrator from INITIAL_ADMIN_* — exactly what the app does on
  * its first request, but runnable ahead of a deployment:
  *

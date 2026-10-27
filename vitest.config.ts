@@ -8,6 +8,8 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     testTimeout: 30000,
     fileParallelism: false,
+    // Tests use the labelled demo data set as fixtures.
+    env: { ENABLE_DEMO_SEED: 'true' },
   },
   resolve: {
     alias: {

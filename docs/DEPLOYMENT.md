@@ -29,7 +29,7 @@ Required in production:
 | `SESSION_TTL_HOURS` | `12` | Lower for shared devices |
 | `AUTH_MAX_LOGIN_ATTEMPTS` | `5` | |
 | `AUTH_LOCKOUT_MINUTES` | `15` | |
-| `ENABLE_DEMO_SEED` | `false` | **Must be false in production** |
+| `ENABLE_DEMO_SEED` | unset | Demo data only when `true` (development); ignored on Vercel Production |
 | `INITIAL_ADMIN_EMAIL` | `it.admin@chalarfarms.com` | First Super Administrator — used only while no active Super Admin exists |
 | `INITIAL_ADMIN_PASSWORD` | strong, unique | 12+ chars, three character classes. **Remove after first sign-in** |
 | `INITIAL_ADMIN_NAME` | `System Administrator` | Optional display name |
@@ -51,8 +51,9 @@ and ephemeral. It needs a PostgreSQL connection string, found in this order:
 ignores the integration's `supa=…` marker. Do **not** add `DATABASE_URL` as well, and never copy
 `.env.example` / `.env.local` into Vercel: its `DATABASE_URL="pglite://…"` and `ENABLE_DEMO_SEED="true"`
 are for local development only. (A `pglite://` `DATABASE_URL` is ignored on Vercel when `POSTGRES_URL`
-exists, with a warning in `/api/health`; on a **Production** deployment demo data is always disabled
-and the published `*.demo` accounts cannot sign in, unless `ALLOW_DEMO_SEED_IN_PRODUCTION=true`.)
+exists, with a warning in `/api/health`.) The portal is a real system by default: demo data is only
+loaded when `ENABLE_DEMO_SEED=true`, and **never** on a Vercel Production deployment — there the
+published `*.demo` accounts cannot sign in even if they exist in the database.
 Then continue at step 2 below, skipping `DATABASE_URL`.
 
 **Option B — set `DATABASE_URL` yourself:**
@@ -68,7 +69,7 @@ Then continue at step 2 below, skipping `DATABASE_URL`.
    - The transaction pooler suits serverless functions; each instance keeps at most 3 connections
      (`DATABASE_POOL_MAX`).
 2. **Vercel → Project → Settings → Environment Variables** (Production):
-   `DATABASE_URL` (Option B only), `ENABLE_DEMO_SEED=false`, `INITIAL_ADMIN_EMAIL`,
+   `DATABASE_URL` (Option B only), `INITIAL_ADMIN_EMAIL`,
    `INITIAL_ADMIN_PASSWORD` (12+ characters, three of lower/upper/digits/symbols), optionally `INITIAL_ADMIN_NAME`.
 3. **Redeploy** (environment changes only apply to new deployments).
 4. Open **`/api/health`** on the production domain (not an older per-deployment URL — those are frozen
@@ -101,7 +102,7 @@ psql "$DATABASE_URL" -c "GRANT CONNECT ON DATABASE chalar_erp TO chalar_app;"
 
 # 2+3. Apply migrations and seed system configuration ONLY (roles, permissions, departments,
 #    chart of accounts with zero balances, statutory rule version, leave types). Idempotent; the app
-#    also does this automatically on its first connection. In production keep ENABLE_DEMO_SEED=false,
+#    also does this automatically on its first connection. Demo data is off unless ENABLE_DEMO_SEED=true,
 #    which seeds configuration without demo operational records, budgets or balances.
 ENABLE_DEMO_SEED=false npm run db:migrate   # `npm run db:seed` is an alias
 
@@ -171,7 +172,7 @@ you need it), mount `PRIVATE_STORAGE_PATH` as a persistent volume, and run as a 
 
 ## 5. Deployment checklist
 
-- [ ] `ENABLE_DEMO_SEED=false` and no demo accounts exist (`SELECT count(*) FROM users WHERE email LIKE '%.demo';` → 0)
+- [ ] `ENABLE_DEMO_SEED` is not set to `true` and no demo accounts exist (`SELECT count(*) FROM users WHERE email LIKE '%.demo';` → 0)
 - [ ] First Super Administrator signed in, password rotated, and `INITIAL_ADMIN_PASSWORD` removed from the environment
 - [ ] All seeded/initial passwords rotated; MFA plan documented (see limitation in `FEATURE-REPORT.md`)
 - [ ] `DATABASE_URL` points at the production database with a least-privilege role; TLS is on (default for remote hosts — set `DATABASE_CA_CERT` for full certificate verification)

@@ -8,7 +8,7 @@ import { isDemoSeedEnabled } from '@/lib/demo-mode';
 /**
  * Seeds the Chalar Farms ERP with clearly-labelled development/demo data.
  * All seeded records are identifiable (email domain, doc numbers, comments).
- * In production deployments (ENABLE_DEMO_SEED=false) only system config,
+ * Unless demo mode is on (ENABLE_DEMO_SEED=true, never on Vercel Production) only system config,
  * roles and permissions are seeded; the first Super Administrator comes from
  * INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD (see ./bootstrap-admin.ts).
  */

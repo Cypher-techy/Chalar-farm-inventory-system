@@ -256,9 +256,9 @@ export function LoginForm({ next, showDemoAccounts, setupRequired, databaseIssue
               ))}
             </ul>
             <p className="mt-4 text-xs leading-relaxed text-stone-400">
-              Demo seed is enabled only when <code className="font-mono">ENABLE_DEMO_SEED</code> is
-              not disabled outside production. Change all default passwords before any real
-              deployment.
+              Shown only because <code className="font-mono">ENABLE_DEMO_SEED=true</code> on this
+              non-production environment. Demo data and these accounts are never available on the
+              live (production) site.
             </p>
           </details>
           )}

@@ -186,8 +186,8 @@ All seeded operational records are synthetic and labelled `(Demo)`, using the no
 `.demo` TLD (e.g. `hr@chalarfarms.demo` with password `Chalar@Demo2026!`;
 `superadmin@chalarfarms.demo` / `Chalar@Admin2026!`). Volumes, yields, prices and customer names
 reflect Chalar Farms' publicly stated product mix and markets so the dashboards are plausible, but
-**no figure is a real financial or production record**. Set `ENABLE_DEMO_SEED=false` (automatic when
-`NODE_ENV=production`) to seed configuration only, then create real accounts through
+**no figure is a real financial or production record**. Demo data is off by default (only with
+`ENABLE_DEMO_SEED=true`, never on Vercel Production); a real database gets configuration only, then create real accounts through
 **Super Admin → Users & Roles**.
 
 ---

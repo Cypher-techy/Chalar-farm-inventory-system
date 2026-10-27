@@ -75,11 +75,12 @@ created before tracking existed are brought up to date idempotently. Rules:
 `src/db/seed.ts` writes two layers:
 
 1. **System configuration** (always): departments with cost centres (budgets only in demo mode), roles and permission
-   mappings, chart of accounts, warehouses, units of measure, product categories, leave types with
-   their Employment Act 2007 basis, shifts, the current Kenyan statutory rule version, crop catalogue,
-   customers, suppliers and system settings.
-2. **Demo operational data** (only when `ENABLE_DEMO_SEED` is not `false` and `NODE_ENV` is not
-   `production`): 16 labelled demo users, 56 employees, 14 days of attendance, crop cycles, harvest
+   mappings, chart of accounts (zero balances outside demo mode), units of measure, product categories,
+   leave types with their Employment Act 2007 basis, shifts, the current Kenyan statutory rule version,
+   integration placeholders (disabled) and system settings. No people, customers, suppliers, stock or
+   financial figures — those are entered by staff.
+2. **Demo operational data** (only when `ENABLE_DEMO_SEED=true`, and never on a Vercel Production
+   deployment): 16 labelled demo users, 56 employees, 14 days of attendance, crop cycles, harvest
    batches, packing runs, QA inspections, requisitions/POs/GRNs/invoices, sales orders, shipments,
    export documents, assets and work orders, expenses, balanced journals, a complete payroll run with
    56 payslips, conversations with messages, notifications and audit history.

@@ -20,16 +20,17 @@ describe('Demo data is never usable on a Vercel production deployment', () => {
     process.env = { ...saved };
   });
 
-  it('VERCEL_ENV=production disables demo mode even with ENABLE_DEMO_SEED=true', () => {
+  it('demo data is opt-in and never allowed on Vercel production', () => {
+    delete process.env.ENABLE_DEMO_SEED;
+    expect(isDemoSeedEnabled()).toBe(false); // real system by default
+    process.env.ENABLE_DEMO_SEED = 'false';
+    expect(isDemoSeedEnabled()).toBe(false);
     process.env.ENABLE_DEMO_SEED = 'true';
     expect(isDemoSeedEnabled()).toBe(true);
     process.env.VERCEL_ENV = 'production';
     expect(isDemoSeedEnabled()).toBe(false);
-    process.env.ALLOW_DEMO_SEED_IN_PRODUCTION = 'true';
-    expect(isDemoSeedEnabled()).toBe(true);
-    process.env.VERCEL_ENV = 'preview';
-    delete process.env.ALLOW_DEMO_SEED_IN_PRODUCTION;
-    expect(isDemoSeedEnabled()).toBe(true);
+    process.env.ALLOW_DEMO_SEED_IN_PRODUCTION = 'true'; // no override exists
+    expect(isDemoSeedEnabled()).toBe(false);
   });
 
   it('blocks demo-account sign-in when demo mode is off, with the generic error', async () => {
