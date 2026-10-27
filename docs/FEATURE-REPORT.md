@@ -97,6 +97,13 @@ and redirects unauthorized users; every API route re-checks independently.
   404 (not 403) for unauthorized callers, downloads audited.
 - Exports: CSV formula-injection escaping, BOM, `no-store`; PDF generated server-side; every export
   writes an audit entry naming the actor and row count.
+- Self-service sign-up (`/signup`): applicants choose an account type mapped to the real roles and
+  dashboards (Finance, HR, Inventory, …; **Super Administrator is never requestable**). A request grants
+  no access until a `users.manage` holder approves it under Super Admin → Users & Roles (they may grant a
+  narrower type, or reject with a recorded reason). Identical responses for new / duplicate / existing
+  emails (no enumeration), honeypot, per-IP rate limit, applicant password stored only as a bcrypt hash
+  and cleared on decision, approvers notified, every decision audited. Email ownership is **not**
+  verified (no email provider configured) — approvers must confirm identity out of band.
 - Rate limiting on login, chat sends, uploads and write endpoints; input validation with Zod on every
   mutation. `ApiError` status codes (429 rate limit, 423 lockout, 409 conflict) propagate to the
   client instead of collapsing into a 500.
@@ -179,8 +186,8 @@ All seeded operational records are synthetic and labelled `(Demo)`, using the no
 `.demo` TLD (e.g. `hr@chalarfarms.demo` with password `Chalar@Demo2026!`;
 `superadmin@chalarfarms.demo` / `Chalar@Admin2026!`). Volumes, yields, prices and customer names
 reflect Chalar Farms' publicly stated product mix and markets so the dashboards are plausible, but
-**no figure is a real financial or production record**. Set `ENABLE_DEMO_SEED=false` (automatic when
-`NODE_ENV=production`) to seed configuration only, then create real accounts through
+**no figure is a real financial or production record**. Demo data is off by default (only with
+`ENABLE_DEMO_SEED=true`, never on Vercel Production); a real database gets configuration only, then create real accounts through
 **Super Admin → Users & Roles**.
 
 ---

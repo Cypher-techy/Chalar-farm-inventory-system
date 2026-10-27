@@ -15,6 +15,13 @@
       "when": 1793023025277,
       "tag": "0001_serious_sage",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793109282895,
+      "tag": "0002_access_requests",
+      "breakpoints": true
     }
   ]
 }

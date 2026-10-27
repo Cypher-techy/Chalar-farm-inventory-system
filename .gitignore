@@ -26,3 +26,6 @@ yarn-error.log*
 *.pem
 *.tsbuildinfo
 next-env.d.ts
+
+# Supabase CLI local cache (machine-specific)
+supabase/.temp/

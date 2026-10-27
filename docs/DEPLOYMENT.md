@@ -24,12 +24,12 @@ Required in production:
 | Variable | Example | Notes |
 |---|---|---|
 | `NODE_ENV` | `production` | Disables the demo seed automatically |
-| `DATABASE_URL` | `postgresql://chalar:***@db.internal:5432/chalar_erp?sslmode=require` | Must use TLS |
-| `SESSION_SECRET` | 64 random bytes | `openssl rand -base64 48` |
+| `DATABASE_URL` | `postgresql://chalar:***@db.internal:5432/chalar_erp` | Remote hosts are always encrypted (see §3a). Falls back to `POSTGRES_URL` / `POSTGRES_PRISMA_URL` / `POSTGRES_URL_NON_POOLING` (Vercel ↔ Supabase integration) |
+| `SESSION_SECRET` | 64 random bytes | Reserved (not currently read; sessions are random hashed tokens). `openssl rand -base64 48` |
 | `SESSION_TTL_HOURS` | `12` | Lower for shared devices |
 | `AUTH_MAX_LOGIN_ATTEMPTS` | `5` | |
 | `AUTH_LOCKOUT_MINUTES` | `15` | |
-| `ENABLE_DEMO_SEED` | `false` | **Must be false in production** |
+| `ENABLE_DEMO_SEED` | unset | Demo data only when `true` (development); ignored on Vercel Production |
 | `INITIAL_ADMIN_EMAIL` | `it.admin@chalarfarms.com` | First Super Administrator — used only while no active Super Admin exists |
 | `INITIAL_ADMIN_PASSWORD` | strong, unique | 12+ chars, three character classes. **Remove after first sign-in** |
 | `INITIAL_ADMIN_NAME` | `System Administrator` | Optional display name |
@@ -39,6 +39,59 @@ Required in production:
 
 Never commit real values. `.env*` files are git-ignored; only `.env.example` (placeholders) is tracked.
 
+## 3a. Vercel + Supabase
+
+The app cannot use its embedded development database on Vercel: the filesystem there is read-only
+and ephemeral. It needs a PostgreSQL connection string, found in this order:
+`DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL` → `POSTGRES_URL_NON_POOLING`.
+
+**Option A — Vercel ↔ Supabase integration (simplest).** Connecting Supabase from Vercel
+(Storage / Marketplace) sets `POSTGRES_URL` (transaction pooler, port 6543), `POSTGRES_URL_NON_POOLING`,
+`SUPABASE_*` and others — but **not** `DATABASE_URL`. The app uses `POSTGRES_URL` automatically and
+ignores the integration's `supa=…` marker. Do **not** add `DATABASE_URL` as well, and never copy
+`.env.example` / `.env.local` into Vercel: its `DATABASE_URL="pglite://…"` and `ENABLE_DEMO_SEED="true"`
+are for local development only. (A `pglite://` `DATABASE_URL` is ignored on Vercel when `POSTGRES_URL`
+exists, with a warning in `/api/health`.) The portal is a real system by default: demo data is only
+loaded when `ENABLE_DEMO_SEED=true`, and **never** on a Vercel Production deployment — there the
+published `*.demo` accounts cannot sign in even if they exist in the database.
+Then continue at step 2 below, skipping `DATABASE_URL`.
+
+**Option B — set `DATABASE_URL` yourself:**
+
+1. **Supabase → Connect → Transaction pooler** (port **6543**). Copy the URI:
+   `postgresql://postgres.<project-ref>:[YOUR-PASSWORD]@aws-1-<region>.pooler.supabase.com:6543/postgres`
+   - Replace `[YOUR-PASSWORD]` (brackets included) with the database password. If it contains
+     `@ # / ? : %` or spaces, percent-encode them (`@` → `%40`, `#` → `%23`, `/` → `%2F`, `?` → `%3F`,
+     `%` → `%25`) or reset it in Supabase → Project Settings → Database to a long alphanumeric one.
+   - No `?sslmode=…` is needed: connections are encrypted by default (`sslmode=require` is accepted).
+     Strict modes (`verify-full` / `verify-ca`) fail against Supabase's private CA unless you also set
+     `DATABASE_CA_CERT` to the certificate from Supabase → Project Settings → Database → SSL.
+   - The transaction pooler suits serverless functions; each instance keeps at most 3 connections
+     (`DATABASE_POOL_MAX`).
+2. **Vercel → Project → Settings → Environment Variables** (Production):
+   `DATABASE_URL` (Option B only), `INITIAL_ADMIN_EMAIL`,
+   `INITIAL_ADMIN_PASSWORD` (12+ characters, three of lower/upper/digits/symbols), optionally `INITIAL_ADMIN_NAME`.
+3. **Redeploy** (environment changes only apply to new deployments).
+4. Open **`/api/health`** on the production domain (not an older per-deployment URL — those are frozen
+   to their commit). `databaseUrlFrom` names the variable in use (never its value), `demoData` should be
+   `false`, and `database` is `ok` or a code with a remediation hint:
+   `DB_CONFIG` (URL missing/invalid), `DB_AUTH` (wrong user/password), `DB_HOST` (unreachable / paused
+   project), `DB_TLS` (certificate verification), `DB_TOO_MANY_CONNECTIONS` (use port 6543),
+   `DB_NOT_FOUND`, `DB_SCHEMA`. Details are logged under `[chalar-db]` in Vercel → Logs.
+   The same message appears on the sign-in page.
+5. Sign in with the initial admin, rotate the password in the portal, then delete
+   `INITIAL_ADMIN_PASSWORD` from Vercel.
+
+`vercel.json` pins functions to `cdg1` (Paris) to sit next to a Supabase project in `eu-west-3`;
+change it if your database is elsewhere. The first request after a deployment migrates and seeds an
+empty database (migrations run in a single locked transaction, so concurrent cold starts are safe).
+To do this ahead of time from your own machine instead:
+
+```bash
+DATABASE_URL="postgresql://…:6543/postgres" ENABLE_DEMO_SEED=false \
+INITIAL_ADMIN_EMAIL=… INITIAL_ADMIN_PASSWORD=… npm run db:migrate
+```
+
 ## 3. Database provisioning
 
 ```bash
@@ -47,13 +100,11 @@ psql "$DATABASE_URL" -c "CREATE DATABASE chalar_erp;"
 psql "$DATABASE_URL" -c "CREATE ROLE chalar_app LOGIN PASSWORD 'replace-me';"
 psql "$DATABASE_URL" -c "GRANT CONNECT ON DATABASE chalar_erp TO chalar_app;"
 
-# 2. Apply migrations (idempotent; also runs automatically on first connection)
-npm run db:migrate
-
-# 3. Seed system configuration ONLY (roles, permissions, departments, chart of accounts,
-#    statutory rule version, leave types, warehouses). In production keep ENABLE_DEMO_SEED=false,
-#    which seeds configuration without demo operational records.
-ENABLE_DEMO_SEED=false npm run db:seed
+# 2+3. Apply migrations and seed system configuration ONLY (roles, permissions, departments,
+#    chart of accounts with zero balances, statutory rule version, leave types). Idempotent; the app
+#    also does this automatically on its first connection. Demo data is off unless ENABLE_DEMO_SEED=true,
+#    which seeds configuration without demo operational records, budgets or balances.
+ENABLE_DEMO_SEED=false npm run db:migrate   # `npm run db:seed` is an alias
 
 # 4. Create the first Super Administrator: set INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD,
 #    then start (or restart) the app. On first database connection, if no active Super Admin
@@ -121,10 +172,12 @@ you need it), mount `PRIVATE_STORAGE_PATH` as a persistent volume, and run as a 
 
 ## 5. Deployment checklist
 
-- [ ] `ENABLE_DEMO_SEED=false` and no demo accounts exist (`SELECT count(*) FROM users WHERE email LIKE '%.demo';` → 0)
+- [ ] `ENABLE_DEMO_SEED` is not set to `true` and no demo accounts exist (`SELECT count(*) FROM users WHERE email LIKE '%.demo';` → 0)
 - [ ] First Super Administrator signed in, password rotated, and `INITIAL_ADMIN_PASSWORD` removed from the environment
 - [ ] All seeded/initial passwords rotated; MFA plan documented (see limitation in `FEATURE-REPORT.md`)
-- [ ] `DATABASE_URL` uses TLS (`sslmode=require`) and a least-privilege role
+- [ ] `DATABASE_URL` points at the production database with a least-privilege role; TLS is on (default for remote hosts — set `DATABASE_CA_CERT` for full certificate verification)
+- [ ] Staff onboarding decided: either approve requests from `/signup` (Super Admin → Users & Roles → Account requests) after confirming identity, or create accounts directly from the same page
+- [ ] `GET /api/health` returns `{"status":"ok","database":"ok","setupRequired":false}`
 - [ ] `SESSION_SECRET` is unique per environment and stored in a secrets manager
 - [ ] Cookies are `Secure` (automatic when `NODE_ENV=production`) and the site is HTTPS-only
 - [ ] Private storage path is outside the web root, not world-readable, and included in backups

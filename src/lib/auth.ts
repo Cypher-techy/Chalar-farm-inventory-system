@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { isDemoAccountEmail, isDemoSeedEnabled } from './demo-mode';
 import bcrypt from 'bcryptjs';
 import { and, eq, isNull, gt, sql } from 'drizzle-orm';
 import { getDb } from '@/db';
@@ -75,6 +76,12 @@ export async function login(
     .where(eq(t.users.email, normalizedEmail))
     .limit(1);
   const user = userRows[0];
+
+  // Demo accounts have publicly known passwords: unusable unless demo mode is on.
+  if (user && isDemoAccountEmail(user.email) && !isDemoSeedEnabled()) {
+    await recordSecurityEvent(db, user.id, 'LOGIN_BLOCKED_DEMO_ACCOUNT', 'WARNING', meta, 'Login blocked — demo account while demo mode is disabled');
+    return { ok: false, error: 'Invalid email or password.' };
+  }
 
   if (!user) {
     await recordSecurityEvent(db, null, 'LOGIN_FAILED_UNKNOWN_EMAIL', 'WARNING', meta, `Login attempt for unknown email ${maskEmail(normalizedEmail)}`);
@@ -181,6 +188,7 @@ export async function getSessionUser(token: string | undefined | null): Promise<
     .limit(1);
   const row = userRows[0];
   if (!row || row.user.status !== 'ACTIVE') return null;
+  if (isDemoAccountEmail(row.user.email) && !isDemoSeedEnabled()) return null;
 
   const roleRows = await db
     .select({ code: t.roles.code })

@@ -5,7 +5,7 @@
 | Mode | `DATABASE_URL` | Use case |
 |---|---|---|
 | Embedded | `pglite://./.data/chalar-pg` (default) | Local development, demos, tests (`memory://` under vitest) |
-| Server | `postgresql://user:pass@host:5432/db?sslmode=require` | Staging and production |
+| Server | `postgresql://user:pass@host:5432/db` | Staging and production (required on Vercel — see `DEPLOYMENT.md` §3a) |
 
 Both paths share the same Drizzle schema and the same generated SQL migrations.
 
@@ -59,8 +59,10 @@ npm run db:generate     # drizzle-kit generates drizzle/migrations/000N_*.sql fr
 npm run db:migrate      # applies pending migrations
 ```
 
-Migrations also apply automatically the first time a connection is opened against an empty database
-(detected by the absence of the `roles` table). Rules:
+Migrations also apply automatically when the app first connects. Applied files are recorded in
+`chalar_schema_migrations`; pending ones run in a single transaction under a PostgreSQL advisory lock,
+so concurrent serverless cold starts cannot race and a failure leaves no partial schema. Databases
+created before tracking existed are brought up to date idempotently. Rules:
 
 - Never edit a migration that has been applied anywhere — add a new one.
 - Review generated SQL before committing; add `USING` casts when changing column types.
@@ -72,22 +74,26 @@ Migrations also apply automatically the first time a connection is opened agains
 
 `src/db/seed.ts` writes two layers:
 
-1. **System configuration** (always): departments with cost centres and budgets, roles and permission
-   mappings, chart of accounts, warehouses, units of measure, product categories, leave types with
-   their Employment Act 2007 basis, shifts, the current Kenyan statutory rule version, crop catalogue,
-   customers, suppliers and system settings.
-2. **Demo operational data** (only when `ENABLE_DEMO_SEED` is not `false` and `NODE_ENV` is not
-   `production`): 16 labelled demo users, 56 employees, 14 days of attendance, crop cycles, harvest
+1. **System configuration** (always): departments with cost centres (budgets only in demo mode), roles and permission
+   mappings, chart of accounts (zero balances outside demo mode), units of measure, product categories,
+   leave types with their Employment Act 2007 basis, shifts, the current Kenyan statutory rule version,
+   integration placeholders (disabled) and system settings. No people, customers, suppliers, stock or
+   financial figures — those are entered by staff.
+2. **Demo operational data** (only when `ENABLE_DEMO_SEED=true`, and never on a Vercel Production
+   deployment): 16 labelled demo users, 56 employees, 14 days of attendance, crop cycles, harvest
    batches, packing runs, QA inspections, requisitions/POs/GRNs/invoices, sales orders, shipments,
    export documents, assets and work orders, expenses, balanced journals, a complete payroll run with
    56 payslips, conversations with messages, notifications and audit history.
 
-Seeding is idempotent (`ON CONFLICT DO NOTHING` on natural keys) and runs at most once per database —
-`ensureSeeded()` short-circuits when the `roles` table already contains rows.
+Chart-of-accounts balances and the sample fleet are likewise demo-only; production databases start at
+zero. Seeding is idempotent (`ON CONFLICT DO NOTHING` on natural keys), runs in a locked transaction,
+and is recorded by the `system.config_seed_version` setting. Demo operational data is only ever added
+to a brand-new database. When a production database seeded by an older build is upgraded, any budget,
+balance or vehicle row that still holds the old illustrative value is reset/removed (edited rows are kept).
 
 ```bash
-npm run db:seed                          # configuration + demo data (dev default)
-ENABLE_DEMO_SEED=false npm run db:seed   # configuration only (production)
+npm run db:seed                          # migrate + configuration + demo data (dev default)
+ENABLE_DEMO_SEED=false npm run db:seed   # migrate + configuration only (production)
 ```
 
 ## 5. Verification scripts

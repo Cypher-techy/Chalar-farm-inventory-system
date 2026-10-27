@@ -2,12 +2,13 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
-import { AlertCircle, ArrowUpRight, Eye, EyeOff, Info, Loader2, ShieldCheck } from 'lucide-react';
-import { LogoLockup, LogoMark } from '@/components/brand/logo';
+import { AlertCircle, ArrowUpRight, Eye, EyeOff, Info, Loader2, UserPlus } from 'lucide-react';
+import { LogoLockup } from '@/components/brand/logo';
+import { AuthVisualPanel } from './auth-visual-panel';
 import { useScrollReveal } from '@/components/motion';
 import { safeNextPath } from '@/lib/safe-redirect';
+import type { DatabaseFailure } from '@/db/connection-config';
 
 const DEMO_ACCOUNTS = [
   ['superadmin@chalarfarms.demo', 'Super Administrator', 'Chalar@Admin2026!'],
@@ -25,9 +26,11 @@ export interface LoginFormProps {
   showDemoAccounts: boolean;
   /** True when the database has no staff accounts at all (fresh production install). */
   setupRequired: boolean;
+  /** Set when the server could not reach / initialise its database. */
+  databaseIssue?: DatabaseFailure | null;
 }
 
-export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormProps) {
+export function LoginForm({ next, showDemoAccounts, setupRequired, databaseIssue = null }: LoginFormProps) {
   const router = useRouter();
   const rootRef = useScrollReveal<HTMLDivElement>();
   const [email, setEmail] = useState('');
@@ -46,10 +49,10 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
       if (!res.ok) {
         setError(
-          data.error ??
+          (data.error && data.code ? `${data.error} (${data.code})` : data.error) ??
             (res.status === 429
               ? 'Too many sign-in attempts. Wait a minute and try again.'
               : 'Sign-in failed. Please try again.')
@@ -69,54 +72,7 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
 
   return (
     <div ref={rootRef} className="flex min-h-screen bg-cream-100">
-      {/* ============ Visual panel ============ */}
-      <div className="grain relative hidden w-1/2 shrink-0 self-start overflow-hidden bg-[#070d09] lg:sticky lg:top-0 lg:block lg:h-screen">
-        <Image
-          src="/images/chalar/greenhouse-sweet-basil.jpg"
-          alt="Rows of sweet basil growing under greenhouse cover at Chalar Farms"
-          fill
-          priority
-          sizes="50vw"
-          className="ken-burns object-cover opacity-40"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-chalar-950 via-chalar-950/65 to-chalar-950/25" />
-
-        <div className="absolute inset-x-0 top-0 p-10">
-          <Link href="/" className="group inline-flex items-center" aria-label="Chalar Farms home">
-            <LogoLockup tone="dark" size={44} subtitle="ERP & Inventory Portal" priority />
-          </Link>
-        </div>
-
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-40" aria-hidden>
-          <span className="glow-breathe absolute h-64 w-64 rounded-full bg-leaf-400/25 blur-[70px]" />
-          <LogoMark variant="glow" size={340} decorative className="float-soft-slow relative opacity-95" />
-        </div>
-
-        <div className="absolute inset-x-0 bottom-0 p-10">
-          <h1 className="mask-lines display display-lg text-white">
-            <span className="mask-line">
-              <span>Everything from</span>
-            </span>
-            <span className="mask-line">
-              <span className="text-clay-300">field to flight.</span>
-            </span>
-          </h1>
-          <p className="mt-5 max-w-md text-sm leading-relaxed text-stone-300">
-            Role-based access to farm operations, inventory, packhouse, quality assurance, finance,
-            payroll, HR and private internal communications — with every action audited.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-white/15 pt-6 text-xs text-stone-300">
-            <span className="inline-flex items-center gap-2">
-              <ShieldCheck className="h-3.5 w-3.5 text-clay-400" aria-hidden />
-              Segregation of duties enforced server-side
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <span className="h-1 w-1 rounded-full bg-clay-400" aria-hidden />
-              12+ tonnes exported weekly
-            </span>
-          </div>
-        </div>
-      </div>
+      <AuthVisualPanel />
 
       {/* ============ Form panel ============ */}
       <div className="flex w-full items-center justify-center px-4 py-12 lg:w-1/2">
@@ -135,6 +91,22 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
               Use your organization account to reach the dashboard your role authorizes.
             </p>
           </div>
+
+          {databaseIssue && (
+            <div
+              className="reveal mt-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm text-red-900"
+              role="alert"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>
+                <span className="block font-semibold">
+                  Sign-in is unavailable — the server can&apos;t reach its database.
+                </span>
+                {databaseIssue.hint}{' '}
+                <span className="font-mono text-xs text-red-700">({databaseIssue.code})</span>
+              </span>
+            </div>
+          )}
 
           {setupRequired && (
             <div
@@ -205,7 +177,7 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
 
             <button
               type="submit"
-              disabled={loading || setupRequired}
+              disabled={loading || setupRequired || Boolean(databaseIssue)}
               aria-busy={loading}
               className="btn-primary h-11 w-full rounded-lg text-[15px] disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -227,6 +199,20 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
               reset — reset links are single-use and expire automatically.
             </p>
           </form>
+
+          <div className="reveal mt-6 flex items-center justify-between gap-4 rounded-xl border border-stone-200 bg-white/70 px-4 py-3.5 text-sm">
+            <span className="text-stone-600">
+              <span className="block font-semibold text-stone-800">New staff member?</span>
+              Request an account for your department&apos;s dashboard.
+            </span>
+            <Link
+              href="/signup"
+              className="btn-secondary shrink-0 rounded-full px-4 py-2 text-xs hover:border-clay-300 hover:text-clay-700"
+            >
+              <UserPlus className="h-3.5 w-3.5" aria-hidden />
+              Request account
+            </Link>
+          </div>
 
           {showDemoAccounts && (
           <details className="group reveal mt-8 rounded-xl border border-stone-200 bg-white p-5 text-sm shadow-card transition-colors open:border-clay-200">
@@ -270,9 +256,9 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
               ))}
             </ul>
             <p className="mt-4 text-xs leading-relaxed text-stone-400">
-              Demo seed is enabled only when <code className="font-mono">ENABLE_DEMO_SEED</code> is
-              not disabled outside production. Change all default passwords before any real
-              deployment.
+              Shown only because <code className="font-mono">ENABLE_DEMO_SEED=true</code> on this
+              non-production environment. Demo data and these accounts are never available on the
+              live (production) site.
             </p>
           </details>
           )}

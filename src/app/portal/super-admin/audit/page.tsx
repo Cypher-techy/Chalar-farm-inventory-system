@@ -78,7 +78,7 @@ export default async function AuditPage(props: {
             </div>
             <div>
               <label className="label" htmlFor="f-actor">Actor email</label>
-              <input id="f-actor" name="actor" defaultValue={actor ?? ''} className="input" placeholder="name@chalarfarms.demo" />
+              <input id="f-actor" name="actor" defaultValue={actor ?? ''} className="input" placeholder="name@example.com" />
             </div>
             <div>
               <label className="label" htmlFor="f-q">Text search</label>

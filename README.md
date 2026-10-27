@@ -20,12 +20,13 @@ cp .env.example .env.local       # placeholders only — see docs/DEPLOYMENT.md
 npm run dev                      # http://localhost:3000 (binds 0.0.0.0)
 ```
 
-On first connection the app applies `drizzle/migrations/*.sql` (69 tables) and seeds system
-configuration plus clearly-labelled **demo** data. No manual migration or seed step is needed for
-local development.
+On first connection the app applies `drizzle/migrations/*.sql` (70 tables) and seeds system
+configuration only — a real, empty system. Set `INITIAL_ADMIN_EMAIL` / `INITIAL_ADMIN_PASSWORD` in
+`.env.local` to create the first Super Administrator. To explore with clearly-labelled sample data on
+your own machine instead, set `ENABLE_DEMO_SEED=true` (never available on the live site).
 
 ```bash
-npm test                            # 61 tests: auth, RBAC, chat privacy, inventory, payroll
+npm test                            # 100 tests: auth, RBAC, chat privacy, inventory, payroll, deployment
 npx tsx scripts/check-db.ts         # seeded-record report
 npx tsx scripts/check-integrity.ts  # trial balance, per-run payroll reconciliation, SoD check
 npm run build && npm start          # production
@@ -44,7 +45,8 @@ npm run build && npm start          # production
 | Executive, Farm, Inventory, HR, Finance, Payroll, Packhouse, QA, Procurement, Sales, Logistics, Maintenance, Supervisor, Auditor, Employee | `<role>@chalarfarms.demo` — e.g. `hr@chalarfarms.demo`, `qa@chalarfarms.demo` | `Chalar@Demo2026!` |
 
 Every demo record is labelled `(Demo)` and uses the non-routable `.demo` TLD. **Rotate all credentials
-and set `ENABLE_DEMO_SEED=false` before real use** (automatic when `NODE_ENV=production`).
+— demo data is off by default, only loads when `ENABLE_DEMO_SEED=true`, and is never available on the
+live (Vercel Production) site.**
 
 Production databases contain **no demo accounts**. Create the first Super Administrator by setting
 `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD` before the first start (see `docs/DEPLOYMENT.md`).

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { login, SESSION_COOKIE_NAME } from '@/lib/auth';
+import { databaseFailureOf } from '@/db/connection-config';
 import { ApiError, clientIp, jsonError, jsonOk, rateLimit } from '@/lib/guards';
+
+// First request on a cold serverless instance may run migrations + seeding.
+export const maxDuration = 60;
 
 const loginSchema = z.object(
   {
@@ -52,7 +56,20 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     // Rate limiting and lockout surface their real status codes (429 / 423)
     if (err instanceof ApiError) return jsonError(err.status, err.message);
-    console.error('login error', err);
+    const dbFailure = databaseFailureOf(err);
+    if (dbFailure) {
+      console.error(`[chalar-db] sign-in unavailable (${dbFailure.code})`, err);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Sign-in is temporarily unavailable: the server can't reach its database.",
+          code: dbFailure.code,
+          hint: dbFailure.hint,
+        },
+        { status: 503, headers: { 'Retry-After': '30' } }
+      );
+    }
+    console.error('[chalar] login error', err);
     return jsonError(500, 'An unexpected error occurred during sign-in.');
   }
 }
