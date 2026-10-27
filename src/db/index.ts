@@ -13,6 +13,7 @@ import {
   DatabaseUnavailableError,
   isPostgresUrl,
   isServerlessHost,
+  resolveDatabaseUrl,
 } from './connection-config';
 
 export { DatabaseUnavailableError, databaseFailureOf } from './connection-config';
@@ -161,7 +162,11 @@ interface DatabaseConnection {
 }
 
 async function createDatabaseConnection(): Promise<DatabaseConnection> {
-  const configured = process.env.DATABASE_URL?.trim();
+  const resolved = resolveDatabaseUrl();
+  const configured = resolved.url;
+  if (resolved.ignoredDatabaseUrl) {
+    console.warn(`[chalar-db] Ignoring non-PostgreSQL DATABASE_URL on this serverless host; using ${resolved.source}. Remove DATABASE_URL from the deployment environment to silence this.`);
+  }
 
   if (isPostgresUrl(configured)) {
     const pool = new pg.Pool(buildPgPoolConfig(configured as string));
@@ -186,7 +191,7 @@ async function createDatabaseConnection(): Promise<DatabaseConnection> {
     throw new DatabaseConfigError(
       configured
         ? 'DATABASE_URL points to the embedded database, which cannot run on Vercel (read-only, ephemeral filesystem). Set it to your PostgreSQL / Supabase connection string.'
-        : 'DATABASE_URL is not set. On Vercel it must be your PostgreSQL / Supabase connection string — the embedded development database cannot run there.'
+        : 'No PostgreSQL connection string found (checked DATABASE_URL, POSTGRES_URL, POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING). On Vercel connect the Supabase integration or set DATABASE_URL — the embedded development database cannot run there.'
     );
   }
 

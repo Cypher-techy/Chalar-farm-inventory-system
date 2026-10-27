@@ -24,8 +24,8 @@ Required in production:
 | Variable | Example | Notes |
 |---|---|---|
 | `NODE_ENV` | `production` | Disables the demo seed automatically |
-| `DATABASE_URL` | `postgresql://chalar:***@db.internal:5432/chalar_erp` | Remote hosts are always encrypted (see §3a for TLS options and Supabase) |
-| `SESSION_SECRET` | 64 random bytes | `openssl rand -base64 48` |
+| `DATABASE_URL` | `postgresql://chalar:***@db.internal:5432/chalar_erp` | Remote hosts are always encrypted (see §3a). Falls back to `POSTGRES_URL` / `POSTGRES_PRISMA_URL` / `POSTGRES_URL_NON_POOLING` (Vercel ↔ Supabase integration) |
+| `SESSION_SECRET` | 64 random bytes | Reserved (not currently read; sessions are random hashed tokens). `openssl rand -base64 48` |
 | `SESSION_TTL_HOURS` | `12` | Lower for shared devices |
 | `AUTH_MAX_LOGIN_ATTEMPTS` | `5` | |
 | `AUTH_LOCKOUT_MINUTES` | `15` | |
@@ -42,7 +42,20 @@ Never commit real values. `.env*` files are git-ignored; only `.env.example` (pl
 ## 3a. Vercel + Supabase
 
 The app cannot use its embedded development database on Vercel: the filesystem there is read-only
-and ephemeral. **`DATABASE_URL` is required.**
+and ephemeral. It needs a PostgreSQL connection string, found in this order:
+`DATABASE_URL` → `POSTGRES_URL` → `POSTGRES_PRISMA_URL` → `POSTGRES_URL_NON_POOLING`.
+
+**Option A — Vercel ↔ Supabase integration (simplest).** Connecting Supabase from Vercel
+(Storage / Marketplace) sets `POSTGRES_URL` (transaction pooler, port 6543), `POSTGRES_URL_NON_POOLING`,
+`SUPABASE_*` and others — but **not** `DATABASE_URL`. The app uses `POSTGRES_URL` automatically and
+ignores the integration's `supa=…` marker. Do **not** add `DATABASE_URL` as well, and never copy
+`.env.example` / `.env.local` into Vercel: its `DATABASE_URL="pglite://…"` and `ENABLE_DEMO_SEED="true"`
+are for local development only. (A `pglite://` `DATABASE_URL` is ignored on Vercel when `POSTGRES_URL`
+exists, with a warning in `/api/health`; on a **Production** deployment demo data is always disabled
+and the published `*.demo` accounts cannot sign in, unless `ALLOW_DEMO_SEED_IN_PRODUCTION=true`.)
+Then continue at step 2 below, skipping `DATABASE_URL`.
+
+**Option B — set `DATABASE_URL` yourself:**
 
 1. **Supabase → Connect → Transaction pooler** (port **6543**). Copy the URI:
    `postgresql://postgres.<project-ref>:[YOUR-PASSWORD]@aws-1-<region>.pooler.supabase.com:6543/postgres`
@@ -55,10 +68,12 @@ and ephemeral. **`DATABASE_URL` is required.**
    - The transaction pooler suits serverless functions; each instance keeps at most 3 connections
      (`DATABASE_POOL_MAX`).
 2. **Vercel → Project → Settings → Environment Variables** (Production):
-   `DATABASE_URL`, `SESSION_SECRET`, `ENABLE_DEMO_SEED=false`, `INITIAL_ADMIN_EMAIL`,
+   `DATABASE_URL` (Option B only), `ENABLE_DEMO_SEED=false`, `INITIAL_ADMIN_EMAIL`,
    `INITIAL_ADMIN_PASSWORD` (12+ characters, three of lower/upper/digits/symbols), optionally `INITIAL_ADMIN_NAME`.
 3. **Redeploy** (environment changes only apply to new deployments).
-4. Open **`/api/health`**. It reports `database: ok` or a code with a remediation hint:
+4. Open **`/api/health`** on the production domain (not an older per-deployment URL — those are frozen
+   to their commit). `databaseUrlFrom` names the variable in use (never its value), `demoData` should be
+   `false`, and `database` is `ok` or a code with a remediation hint:
    `DB_CONFIG` (URL missing/invalid), `DB_AUTH` (wrong user/password), `DB_HOST` (unreachable / paused
    project), `DB_TLS` (certificate verification), `DB_TOO_MANY_CONNECTIONS` (use port 6543),
    `DB_NOT_FOUND`, `DB_SCHEMA`. Details are logged under `[chalar-db]` in Vercel → Logs.

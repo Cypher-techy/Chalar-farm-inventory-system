@@ -49,14 +49,16 @@ export default async function LoginPage({
   let databaseIssue: DatabaseFailure | null = null;
   try {
     const db = await getDb();
-    const counts = firstRow<{ total: number; demo: number }>(
+    const counts = firstRow<{ real_total: number; total: number; demo: number }>(
       await db.execute(sql`
-        SELECT count(*)::int AS total,
+        SELECT count(*) FILTER (WHERE email NOT LIKE '%@chalarfarms.demo')::int AS real_total,
+               count(*)::int AS total,
                count(*) FILTER (WHERE email = 'superadmin@chalarfarms.demo' AND status = 'ACTIVE')::int AS demo
         FROM users
       `)
     );
-    setupRequired = Number(counts?.total ?? 0) === 0;
+    // Demo accounts are unusable when demo mode is off, so they don't count as staff accounts.
+    setupRequired = Number((isDemoSeedEnabled() ? counts?.total : counts?.real_total) ?? 0) === 0;
     showDemoAccounts = isDemoSeedEnabled() && Number(counts?.demo ?? 0) > 0;
   } catch (err) {
     databaseIssue = databaseFailureOf(err) ?? { code: 'DB_UNKNOWN', hint: 'See the server logs for details.' };

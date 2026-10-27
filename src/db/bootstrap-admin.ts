@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { isDemoSeedEnabled } from '@/lib/demo-mode';
 import type { ChalarDatabase } from './index';
 
 /**
@@ -43,6 +44,7 @@ export async function countActiveSuperAdmins(db: ChalarDatabase): Promise<number
       JOIN user_roles ur ON ur.user_id = u.id
       JOIN roles r ON r.id = ur.role_id
       WHERE r.code = 'SUPER_ADMIN' AND u.status = 'ACTIVE'
+        AND (${isDemoSeedEnabled()}::boolean OR u.email NOT LIKE '%@chalarfarms.demo')
     `)
   );
   return Number(r[0]?.n ?? 0);

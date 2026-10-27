@@ -33,8 +33,47 @@ export function isPostgresUrl(url: string | undefined): boolean {
   return Boolean(url && /^postgres(ql)?:\/\//i.test(url.trim()));
 }
 
+/**
+ * Variables checked for a PostgreSQL connection string, in priority order.
+ * The Vercel ↔ Supabase integration sets POSTGRES_URL (transaction pooler),
+ * POSTGRES_PRISMA_URL and POSTGRES_URL_NON_POOLING — never DATABASE_URL.
+ */
+export const DATABASE_URL_VARIABLES = ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL_NON_POOLING'] as const;
+export type DatabaseUrlVariable = (typeof DATABASE_URL_VARIABLES)[number];
+
+export interface ResolvedDatabaseUrl {
+  /** The connection string to use, or undefined → embedded development database. */
+  url: string | undefined;
+  /** Name of the variable it came from (safe to display; never the value). */
+  source: DatabaseUrlVariable | null;
+  /** Set when a non-PostgreSQL DATABASE_URL was overridden on a serverless host. */
+  ignoredDatabaseUrl: boolean;
+}
+
+export function resolveDatabaseUrl(env: Record<string, string | undefined> = process.env): ResolvedDatabaseUrl {
+  const explicit = env.DATABASE_URL?.trim() || undefined;
+  if (explicit && isPostgresUrl(explicit)) return { url: explicit, source: 'DATABASE_URL', ignoredDatabaseUrl: false };
+
+  const fromIntegration = DATABASE_URL_VARIABLES.slice(1)
+    .map((name) => ({ name, value: env[name]?.trim() }))
+    .find((v) => isPostgresUrl(v.value));
+
+  if (explicit) {
+    // e.g. DATABASE_URL="pglite://…" copied from .env.example into Vercel: it can never
+    // work on a serverless host, so prefer the integration's PostgreSQL URL there.
+    if (fromIntegration && isServerlessHost(env)) {
+      return { url: fromIntegration.value, source: fromIntegration.name, ignoredDatabaseUrl: true };
+    }
+    return { url: explicit, source: 'DATABASE_URL', ignoredDatabaseUrl: false };
+  }
+  if (fromIntegration) return { url: fromIntegration.value, source: fromIntegration.name, ignoredDatabaseUrl: false };
+  return { url: undefined, source: null, ignoredDatabaseUrl: false };
+}
+
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 const SSL_PARAMS = ['sslmode', 'ssl', 'sslrootcert', 'sslcert', 'sslkey', 'uselibpqcompat', 'sslnegotiation'];
+/** Tool-specific markers that are not PostgreSQL parameters (Supabase/Vercel/Prisma). */
+const NON_PG_PARAMS = ['supa', 'workaround', 'pgbouncer', 'connection_limit', 'pool_timeout'];
 
 export type SslMode = 'disable' | 'require' | 'verify-full';
 
@@ -108,7 +147,7 @@ export function buildPgPoolConfig(rawUrl: string, env: Record<string, string | u
       `Unsupported DATABASE_SSL value "${rawEnvMode}". Use disable, require or verify-full.`
     );
   }
-  for (const p of SSL_PARAMS) url.searchParams.delete(p);
+  for (const p of [...SSL_PARAMS, ...NON_PG_PARAMS]) url.searchParams.delete(p);
 
   const ca = env.DATABASE_CA_CERT?.trim() ? env.DATABASE_CA_CERT.replace(/\\n/g, '\n') : undefined;
   const isLocal = LOCAL_HOSTS.has(url.hostname.toLowerCase());
@@ -151,7 +190,7 @@ export interface DatabaseFailure {
 }
 
 const HINTS: Record<DatabaseFailureCode, string> = {
-  DB_CONFIG: 'DATABASE_URL is missing or invalid for this host. On Vercel it must be a PostgreSQL connection string (e.g. Supabase → Connect → Transaction pooler).',
+  DB_CONFIG: 'No usable PostgreSQL connection string. On Vercel, connect the Supabase integration (it sets POSTGRES_URL) or set DATABASE_URL to the Supabase transaction pooler URI, then redeploy.',
   DB_TLS: 'The database TLS certificate could not be verified. Remove sslmode=verify-full / verify-ca, or set DATABASE_CA_CERT to the provider\'s CA certificate.',
   DB_SSL_REQUIRED: 'The database requires an encrypted connection. Remove sslmode=disable / DATABASE_SSL=disable.',
   DB_AUTH: 'The database rejected the user name or password in DATABASE_URL. Check it (Supabase pooler user names look like postgres.<project-ref>) and percent-encode special characters.',

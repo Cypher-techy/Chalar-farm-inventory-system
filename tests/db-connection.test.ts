@@ -12,6 +12,7 @@ import {
   DatabaseConfigError,
   DatabaseSchemaError,
   DatabaseUnavailableError,
+  resolveDatabaseUrl,
 } from '@/db/connection-config';
 
 const SUPABASE = 'postgresql://postgres.abcd:p%40ss@aws-1-eu-west-3.pooler.supabase.com:6543/postgres';
@@ -59,6 +60,36 @@ describe('PostgreSQL connection config', () => {
       DatabaseConfigError
     );
     expect(() => buildPgPoolConfig('postgresql://postgres:a b#c@/host:5432/db', {})).toThrow(DatabaseConfigError);
+  });
+});
+
+describe('Connection string discovery (Vercel ↔ Supabase integration)', () => {
+  const POOLED = 'postgres://postgres.ref:pw@aws-1-eu-west-3.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x';
+  const DIRECT = 'postgres://postgres.ref:pw@aws-1-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require';
+
+  it('uses the integration’s POSTGRES_URL when DATABASE_URL is absent', () => {
+    expect(resolveDatabaseUrl({ POSTGRES_URL: POOLED, POSTGRES_URL_NON_POOLING: DIRECT, VERCEL: '1' })).toEqual({
+      url: POOLED, source: 'POSTGRES_URL', ignoredDatabaseUrl: false,
+    });
+    expect(resolveDatabaseUrl({ POSTGRES_URL_NON_POOLING: DIRECT }).source).toBe('POSTGRES_URL_NON_POOLING');
+  });
+
+  it('an explicit PostgreSQL DATABASE_URL always wins', () => {
+    expect(resolveDatabaseUrl({ DATABASE_URL: SUPABASE, POSTGRES_URL: POOLED, VERCEL: '1' }).source).toBe('DATABASE_URL');
+  });
+
+  it('ignores a pglite DATABASE_URL copied into Vercel, but honours it locally', () => {
+    const onVercel = resolveDatabaseUrl({ DATABASE_URL: 'pglite://./.data/chalar-pg', POSTGRES_URL: POOLED, VERCEL: '1' });
+    expect(onVercel).toEqual({ url: POOLED, source: 'POSTGRES_URL', ignoredDatabaseUrl: true });
+    expect(resolveDatabaseUrl({ DATABASE_URL: 'pglite://./.data/chalar-pg', POSTGRES_URL: POOLED }).url).toBe('pglite://./.data/chalar-pg');
+    expect(resolveDatabaseUrl({}).url).toBeUndefined();
+  });
+
+  it('strips the integration’s non-PostgreSQL markers from the URL', () => {
+    const cfg = buildPgPoolConfig(POOLED, { VERCEL: '1' });
+    expect(cfg.connectionString).not.toMatch(/supa=|sslmode/);
+    expect(cfg.ssl).toEqual({ rejectUnauthorized: false });
+    expect(buildPgPoolConfig('postgres://u:p@h.example:6543/db?pgbouncer=true&connection_limit=1', {}).connectionString).not.toMatch(/pgbouncer|connection_limit/);
   });
 });
 
