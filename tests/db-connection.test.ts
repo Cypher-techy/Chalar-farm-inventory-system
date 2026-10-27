@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { describe, it, expect, afterEach } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
 import { drizzle } from 'drizzle-orm/pglite';
@@ -108,6 +110,7 @@ describe('getDb on serverless hosts', () => {
 });
 
 describe('Schema migrations', () => {
+  const MIGRATION_FILES = fs.readdirSync(path.join(process.cwd(), 'drizzle', 'migrations')).filter((f) => f.endsWith('.sql')).length;
   const count = async (db: ChalarDatabase, q: ReturnType<typeof sql>) =>
     Number(((await db.execute(q)) as unknown as { rows: Array<{ n: number }> }).rows[0].n);
 
@@ -115,7 +118,7 @@ describe('Schema migrations', () => {
     const db = drizzle(new PGlite(), { schema });
     await applySchemaMigrations(db);
     await applySchemaMigrations(db); // idempotent
-    expect(await count(db, sql`SELECT count(*)::int AS n FROM chalar_schema_migrations`)).toBe(2);
+    expect(await count(db, sql`SELECT count(*)::int AS n FROM chalar_schema_migrations`)).toBe(MIGRATION_FILES);
     expect(
       await count(db, sql`SELECT count(*)::int AS n FROM information_schema.columns WHERE table_name = 'vehicles' AND column_name = 'reefer_temp_max_c'`)
     ).toBe(1);
@@ -128,7 +131,7 @@ describe('Schema migrations', () => {
     await db.execute(sql`DROP TABLE chalar_schema_migrations`);
     await db.execute(sql`ALTER TABLE vehicles DROP COLUMN reefer_temp_max_c`);
     await applySchemaMigrations(db);
-    expect(await count(db, sql`SELECT count(*)::int AS n FROM chalar_schema_migrations`)).toBe(2);
+    expect(await count(db, sql`SELECT count(*)::int AS n FROM chalar_schema_migrations`)).toBe(MIGRATION_FILES);
     expect(
       await count(db, sql`SELECT count(*)::int AS n FROM information_schema.columns WHERE table_name = 'vehicles' AND column_name = 'reefer_temp_max_c'`)
     ).toBe(1);

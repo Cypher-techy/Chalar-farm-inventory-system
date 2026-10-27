@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 // ============================================================================
 // 1. IDENTITY, ACCESS & SECURITY
@@ -154,6 +155,44 @@ export const invitations = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('invitations_token_hash_idx').on(table.tokenHash)]
+);
+
+/**
+ * Self-service account requests from the public sign-up page. A request grants
+ * NO access: a user with `users.manage` must approve it, which creates the user
+ * with the (possibly adjusted) role. The applicant's chosen password is stored
+ * only as a bcrypt hash and is cleared once the request is decided.
+ */
+export const accessRequests = pgTable(
+  'access_requests',
+  {
+    id: serial('id').primaryKey(),
+    requestCode: text('request_code').notNull(),
+    email: text('email').notNull(), // lower-cased
+    fullName: text('full_name').notNull(),
+    phone: text('phone'),
+    jobTitle: text('job_title'),
+    departmentId: integer('department_id').references(() => departments.id),
+    requestedRoleCode: text('requested_role_code').notNull(),
+    message: text('message'),
+    passwordHash: text('password_hash'),
+    status: text('status').notNull().default('PENDING'), // PENDING | APPROVED | REJECTED
+    grantedRoleCode: text('granted_role_code'),
+    decidedByUserId: integer('decided_by_user_id').references(() => users.id),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    decisionNote: text('decision_note'),
+    createdUserId: integer('created_user_id').references(() => users.id),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('access_requests_code_idx').on(table.requestCode),
+    // At most one open request per email address
+    uniqueIndex('access_requests_pending_email_idx').on(table.email).where(sql`status = 'PENDING'`),
+    index('access_requests_status_idx').on(table.status),
+  ]
 );
 
 export const securityEvents = pgTable(

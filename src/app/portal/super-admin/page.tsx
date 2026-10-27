@@ -9,6 +9,9 @@ import {
 } from '@/lib/dashboard-queries';
 import { KPICard, PageHeader, Card, DataTable, StatusBadge, fmtKes, fmtNum, fmtDateTime } from '@/components/portal/ui';
 import { SimpleBarChart } from '@/components/portal/charts';
+import { sql } from 'drizzle-orm';
+import { getDb } from '@/db';
+import { UserPlus } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +27,12 @@ export default async function SuperAdminDashboard() {
     recentActivity(14),
     departmentBudgetSnapshot(),
   ]);
+
+  const pendingAccess = Number(
+    ((await (await getDb()).execute(sql`SELECT count(*)::int AS n FROM access_requests WHERE status = 'PENDING'`)) as unknown as {
+      rows: Array<{ n: number }>;
+    }).rows[0]?.n ?? 0
+  );
 
   const budgetData = budgets.slice(0, 8).map((b) => ({
     name: b.name.split(' ')[0],
@@ -45,6 +54,21 @@ export default async function SuperAdminDashboard() {
           </>
         }
       />
+
+      {pendingAccess > 0 && (
+        <Link
+          href="/portal/super-admin/users#access-requests"
+          className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 transition-colors hover:border-amber-300"
+        >
+          <span className="flex items-center gap-2.5">
+            <UserPlus className="h-4 w-4" aria-hidden />
+            <span>
+              <strong>{pendingAccess}</strong> account request{pendingAccess === 1 ? '' : 's'} waiting for review
+            </span>
+          </span>
+          <span className="text-xs font-semibold">Review →</span>
+        </Link>
+      )}
 
       {/* People & workforce */}
       <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-400">Workforce</p>

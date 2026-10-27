@@ -97,6 +97,13 @@ and redirects unauthorized users; every API route re-checks independently.
   404 (not 403) for unauthorized callers, downloads audited.
 - Exports: CSV formula-injection escaping, BOM, `no-store`; PDF generated server-side; every export
   writes an audit entry naming the actor and row count.
+- Self-service sign-up (`/signup`): applicants choose an account type mapped to the real roles and
+  dashboards (Finance, HR, Inventory, …; **Super Administrator is never requestable**). A request grants
+  no access until a `users.manage` holder approves it under Super Admin → Users & Roles (they may grant a
+  narrower type, or reject with a recorded reason). Identical responses for new / duplicate / existing
+  emails (no enumeration), honeypot, per-IP rate limit, applicant password stored only as a bcrypt hash
+  and cleared on decision, approvers notified, every decision audited. Email ownership is **not**
+  verified (no email provider configured) — approvers must confirm identity out of band.
 - Rate limiting on login, chat sends, uploads and write endpoints; input validation with Zod on every
   mutation. `ApiError` status codes (429 rate limit, 423 lockout, 409 conflict) propagate to the
   client instead of collapsing into a 500.

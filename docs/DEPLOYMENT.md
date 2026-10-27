@@ -160,6 +160,7 @@ you need it), mount `PRIVATE_STORAGE_PATH` as a persistent volume, and run as a 
 - [ ] First Super Administrator signed in, password rotated, and `INITIAL_ADMIN_PASSWORD` removed from the environment
 - [ ] All seeded/initial passwords rotated; MFA plan documented (see limitation in `FEATURE-REPORT.md`)
 - [ ] `DATABASE_URL` points at the production database with a least-privilege role; TLS is on (default for remote hosts — set `DATABASE_CA_CERT` for full certificate verification)
+- [ ] Staff onboarding decided: either approve requests from `/signup` (Super Admin → Users & Roles → Account requests) after confirming identity, or create accounts directly from the same page
 - [ ] `GET /api/health` returns `{"status":"ok","database":"ok","setupRequired":false}`
 - [ ] `SESSION_SECRET` is unique per environment and stored in a secrets manager
 - [ ] Cookies are `Secure` (automatic when `NODE_ENV=production`) and the site is HTTPS-only

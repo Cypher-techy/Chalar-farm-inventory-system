@@ -5,6 +5,8 @@ import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { PageHeader, Card, DataTable, StatusBadge, fmtDateTime } from '@/components/portal/ui';
 import { UserAdminDesk } from './user-admin-desk';
+import { AccessRequestDesk, type AccessRequestRow } from './access-request-desk';
+import { REQUESTABLE_ACCOUNT_TYPES } from '@/lib/account-types';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +42,19 @@ export default async function UsersAdminPage() {
     SELECT id, code, name FROM departments ORDER BY name;
   `)) as unknown as { rows: Array<{ id: number; code: string; name: string }> };
 
+  const accessRes = (await db.execute(sql`
+    SELECT ar.id, ar.request_code AS "requestCode", ar.email, ar.full_name AS "fullName", ar.phone,
+           ar.job_title AS "jobTitle", ar.department_id AS "departmentId", d.name AS department,
+           ar.requested_role_code AS "requestedRoleCode", ar.granted_role_code AS "grantedRoleCode",
+           ar.message, ar.status, ar.decision_note AS "decisionNote", ar.decided_at AS "decidedAt",
+           du.email AS "decidedBy", ar.created_at AS "createdAt"
+    FROM access_requests ar
+    LEFT JOIN departments d ON d.id = ar.department_id
+    LEFT JOIN users du ON du.id = ar.decided_by_user_id
+    ORDER BY (ar.status = 'PENDING') DESC, COALESCE(ar.decided_at, ar.created_at) DESC
+    LIMIT 100;
+  `)) as unknown as { rows: AccessRequestRow[] };
+
   const securityRes = (await db.execute(sql`
     SELECT se.event_type AS "eventType", se.severity, se.description, se.ip_address AS ip,
            se.created_at AS "createdAt", u.email
@@ -58,6 +73,12 @@ export default async function UsersAdminPage() {
         title="User & Role Administration"
         subtitle="Create accounts, assign system roles, reset credentials, lock or deactivate users. Every administrative action is written to the audit log and security event register."
         actions={<a href="/api/reports/export?type=audit-log" className="btn-secondary">Audit log CSV</a>}
+      />
+
+      <AccessRequestDesk
+        requests={accessRes.rows}
+        accountTypes={REQUESTABLE_ACCOUNT_TYPES.map((a) => ({ code: a.code, name: a.name }))}
+        departments={departmentsRes.rows}
       />
 
       <UserAdminDesk
