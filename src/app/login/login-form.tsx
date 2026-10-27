@@ -70,7 +70,7 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
   return (
     <div ref={rootRef} className="flex min-h-screen bg-cream-100">
       {/* ============ Visual panel ============ */}
-      <div className="grain relative hidden w-1/2 overflow-hidden bg-[#070d09] lg:block">
+      <div className="grain relative hidden w-1/2 shrink-0 self-start overflow-hidden bg-[#070d09] lg:sticky lg:top-0 lg:block lg:h-screen">
         <Image
           src="/images/chalar/greenhouse-sweet-basil.jpg"
           alt="Rows of sweet basil growing under greenhouse cover at Chalar Farms"
@@ -229,7 +229,7 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
           </form>
 
           {showDemoAccounts && (
-          <details className="reveal mt-8 rounded-xl border border-stone-200 bg-white p-5 text-sm shadow-card transition-colors open:border-clay-200">
+          <details className="group reveal mt-8 rounded-xl border border-stone-200 bg-white p-5 text-sm shadow-card transition-colors open:border-clay-200">
             <summary className="cursor-pointer list-none">
               <span className="flex items-center justify-between gap-3">
                 <span>
@@ -240,7 +240,10 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
                     Non-production seed data
                   </span>
                 </span>
-                <span className="kicker shrink-0 text-[9px] text-clay-600">Open</span>
+                <span className="kicker shrink-0 text-[9px] text-clay-600" aria-hidden>
+                  <span className="group-open:hidden">Show</span>
+                  <span className="hidden group-open:inline">Hide</span>
+                </span>
               </span>
             </summary>
             <ul className="mt-4 space-y-1 border-t border-stone-100 pt-3">

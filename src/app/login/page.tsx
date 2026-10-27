@@ -9,7 +9,7 @@ import { safeNextPath } from '@/lib/safe-redirect';
 import { LoginForm } from './login-form';
 
 export const metadata: Metadata = {
-  title: 'Sign in · Chalar Farms ERP',
+  title: 'Sign in',
   robots: { index: false, follow: false },
 };
 
