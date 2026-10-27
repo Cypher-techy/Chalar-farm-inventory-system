@@ -56,7 +56,7 @@ export function Pillars() {
   });
 
   return (
-    <section className="relative bg-cream-100 pb-24 lg:pb-32" aria-labelledby="pillars-heading">
+    <section id="grow" className="relative bg-cream-100 pb-24 lg:pb-32" aria-labelledby="pillars-heading">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-6 pb-10 lg:pb-14">
           <div className="reveal max-w-2xl">

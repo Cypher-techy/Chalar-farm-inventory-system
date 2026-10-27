@@ -11,6 +11,7 @@
      Both are self-hosted (see src/app/layout.tsx). */
   --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
+  --font-landing: 'Inter Tight Variable', 'Inter Variable', system-ui, sans-serif;
   --font-display: 'Fraunces Variable', 'Fraunces', Georgia, Cambria, 'Times New Roman', serif;
 }
 
@@ -423,6 +424,20 @@ html.lenis {
   scroll-behavior: auto;
 }
 
+/* Public site uses a tight grotesk for display type (eatnaked.co); the ERP keeps Fraunces. */
+.landing {
+  --font-display: var(--font-landing);
+}
+.landing .display {
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variation-settings: normal;
+}
+.landing .font-serif {
+  letter-spacing: -0.025em;
+}
+
 /* ---------- Preloader ---------- */
 .preloader {
   position: fixed;
@@ -431,7 +446,8 @@ html.lenis {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #070d09;
+  background: #0b0b0b;
+  overflow: hidden;
   clip-path: inset(0 0 0 0);
   transition: clip-path 0.95s cubic-bezier(0.76, 0, 0.24, 1);
   /* failsafe: never block the page, even if JS never runs */
@@ -455,11 +471,73 @@ html.lenis {
 .chalar-preloaded .preloader {
   display: none;
 }
+.preloader-rings {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.preloader-ring {
+  position: absolute;
+  width: var(--r);
+  height: var(--r);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  animation: ring-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.preloader-ring.is-dashed {
+  border: 1.5px dashed rgba(255, 255, 255, 0.13);
+  animation:
+    ring-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) both,
+    ring-spin 40s linear infinite;
+}
+.preloader-ring.is-slow {
+  animation:
+    ring-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) both,
+    ring-spin 70s linear infinite reverse;
+}
+.preloader[data-phase='leaving'] .preloader-rings {
+  transform: scale(1.35);
+  opacity: 0;
+  transition:
+    transform 0.95s cubic-bezier(0.76, 0, 0.24, 1),
+    opacity 0.7s ease;
+}
+@keyframes ring-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes ring-spin {
+  to { rotate: 360deg; }
+}
+.preloader-ghost {
+  /* flat grey silhouette, like the eatnaked.co intro */
+  filter: brightness(0) invert(0.2);
+}
+.preloader-count {
+  margin-top: 1.75rem;
+  font-family: var(--font-landing);
+  font-size: clamp(2.25rem, 4vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
 @keyframes preloader-failsafe {
   to {
     visibility: hidden;
     pointer-events: none;
   }
+}
+
+/* ---------- Section index wave ---------- */
+.index-wave {
+  animation: index-wave 1.6s linear infinite;
+}
+@keyframes index-wave {
+  from { transform: translateX(-12px); }
+  to { transform: translateX(0); }
 }
 
 /* ---------- Glow / ambient ---------- */
@@ -674,6 +752,8 @@ html.lenis {
   .glow-breathe,
   .glow-breathe-slow,
   .word-swap,
+  .index-wave,
+  .preloader-ring,
   .scroll-cue::after {
     animation: none !important;
   }

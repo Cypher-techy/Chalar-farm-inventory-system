@@ -18,7 +18,7 @@ export function ExpandMedia() {
   });
 
   return (
-    <section className="relative bg-cream-100" aria-label="Our farm in action">
+    <section id="farm" className="relative bg-cream-100" aria-label="Our farm in action">
       <div ref={pinRef} className="expand-pin relative h-[260svh] motion-reduce:h-auto">
         <div className="sticky top-0 h-[100svh] overflow-hidden motion-reduce:relative">
           {/* Media window (clip-path grows from a pill to full-bleed) */}

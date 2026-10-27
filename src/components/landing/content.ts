@@ -76,7 +76,8 @@ export const HERO_CHIPS = [
 ] as const;
 
 /** Words cycled in the hero kicker (eatnaked.co's "Bold / Fresh / Tailored" device). */
-export const ROTATING_WORDS = ['Fresh', 'Traceable', 'Certified', 'Year-round'] as const;
+/** Hero outline pills (eatnaked.co "Bold / Fresh / Tailored"). */
+export const HERO_PILLS = ['Hand-picked', 'Fresh', 'Traceable'] as const;
 
 export const HERBS = [
   {

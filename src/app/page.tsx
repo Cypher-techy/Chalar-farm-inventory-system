@@ -13,6 +13,8 @@ import { Markets } from '@/components/landing/markets';
 import { Quality, SiteFooter } from '@/components/landing/sections';
 import { SlideLines } from '@/components/landing/slide-lines';
 import { Join } from '@/components/landing/join';
+import { SectionIndex } from '@/components/landing/section-index';
+import { ContactCorner } from '@/components/landing/contact-corner';
 import { TICKER_ITEMS } from '@/components/landing/content';
 
 /**
@@ -62,6 +64,8 @@ export default function LandingPage() {
         </main>
 
         <SiteFooter />
+        <SectionIndex />
+        <ContactCorner />
       </LandingShell>
     </>
   );

@@ -60,26 +60,27 @@ export function Preloader() {
 
   return (
     <div className="preloader" data-phase={phase} aria-hidden>
+      {/* Concentric rings radiating from the mark (eatnaked.co intro) */}
+      <div className="preloader-rings">
+        <span className="preloader-ring" style={{ '--r': '300px' } as React.CSSProperties} />
+        <span className="preloader-ring is-dashed" style={{ '--r': '560px' } as React.CSSProperties} />
+        <span className="preloader-ring" style={{ '--r': '820px' } as React.CSSProperties} />
+        <span className="preloader-ring is-dashed is-slow" style={{ '--r': '1120px' } as React.CSSProperties} />
+        <span className="preloader-ring" style={{ '--r': '1500px' } as React.CSSProperties} />
+      </div>
+
       <div className="preloader-inner">
+        {/* Dimmed silhouette with the full-colour mark filling up from the base */}
         <div className="relative">
-          <span className="glow-breathe absolute inset-[18%] rounded-full bg-leaf-400/30 blur-3xl" />
-          <LogoMark variant="glow" size={220} priority decorative className="relative" />
+          <LogoMark variant="compact" size={170} priority decorative className="preloader-ghost" />
+          <div
+            className="absolute inset-0"
+            style={{ clipPath: `inset(${100 - count}% 0 0 0)` }}
+          >
+            <LogoMark variant="compact" size={170} decorative />
+          </div>
         </div>
-        <p className="mt-2 font-serif text-xl font-semibold tracking-tight text-white">Chalar Farms</p>
-        <p className="kicker mt-1 text-[9px] text-clay-300">Growers &amp; Exporters of Fresh Herbs</p>
-      </div>
-      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between px-6 pb-6 sm:px-10 sm:pb-8">
-        <span className="kicker text-[10px] text-stone-500">Taveta · Kenya</span>
-        <span className="display text-6xl text-white tnum sm:text-8xl">
-          {count}
-          <span className="text-clay-400">%</span>
-        </span>
-      </div>
-      <div className="absolute inset-x-0 bottom-0 h-px bg-white/10">
-        <div
-          className="h-px origin-left bg-clay-400"
-          style={{ transform: `scaleX(${count / 100})` }}
-        />
+        <p className="preloader-count tnum">{count}%</p>
       </div>
     </div>
   );
