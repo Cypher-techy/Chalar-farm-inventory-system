@@ -46,6 +46,11 @@ npm run build && npm start          # production
 Every demo record is labelled `(Demo)` and uses the non-routable `.demo` TLD. **Rotate all credentials
 and set `ENABLE_DEMO_SEED=false` before real use** (automatic when `NODE_ENV=production`).
 
+Production databases contain **no demo accounts**. Create the first Super Administrator by setting
+`INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD` before the first start (see `docs/DEPLOYMENT.md`).
+A local database first created in production mode (`npm start`) has no demo accounts either — delete
+`.data/chalar-pg` and start with `npm run dev` to recreate it with demo data.
+
 ---
 
 ## What is implemented

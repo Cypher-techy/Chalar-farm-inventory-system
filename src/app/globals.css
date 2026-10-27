@@ -11,6 +11,7 @@
      Both are self-hosted (see src/app/layout.tsx). */
   --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
+  --font-landing: 'Inter Tight Variable', 'Inter Variable', system-ui, sans-serif;
   --font-display: 'Fraunces Variable', 'Fraunces', Georgia, Cambria, 'Times New Roman', serif;
 }
 
@@ -57,9 +58,12 @@ body {
   font-size: clamp(1.65rem, 3.2vw, 2.5rem);
   font-variation-settings: 'opsz' 60;
 }
-.lede {
-  @apply text-base leading-relaxed text-stone-600 sm:text-lg sm:leading-relaxed;
-  text-wrap: pretty;
+/* Layered so colour utilities (e.g. text-stone-300 on dark sections) win */
+@layer components {
+  .lede {
+    @apply text-base leading-relaxed text-stone-600 sm:text-lg sm:leading-relaxed;
+    text-wrap: pretty;
+  }
 }
 
 /* Hairline rule that fades at both ends — used as a section divider */
@@ -407,4 +411,373 @@ body {
 }
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #a8a29e;
+}
+
+/* ======================================================================
+   Landing page — scroll-driven effects (eatnaked.co-inspired)
+   Every section exposes its scroll progress as --p (0 → 1), set by
+   useScrollProgressVar; per-item values (--e, --w, --covered, --c) are
+   eased in JS. All of it is neutralised under prefers-reduced-motion.
+   ====================================================================== */
+
+html.lenis {
+  scroll-behavior: auto;
+}
+
+/* Public site uses a tight grotesk for display type (eatnaked.co); the ERP keeps Fraunces. */
+.landing {
+  --font-display: var(--font-landing);
+}
+.landing .display {
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variation-settings: normal;
+}
+.landing .font-serif {
+  letter-spacing: -0.025em;
+}
+
+/* ---------- Preloader ---------- */
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b0b0b;
+  overflow: hidden;
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 0.95s cubic-bezier(0.76, 0, 0.24, 1);
+  /* failsafe: never block the page, even if JS never runs */
+  animation: preloader-failsafe 0.01s linear 4.5s forwards;
+}
+.preloader[data-phase='leaving'] {
+  clip-path: inset(0 0 100% 0);
+}
+.preloader-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition:
+    transform 0.95s cubic-bezier(0.76, 0, 0.24, 1),
+    opacity 0.6s ease;
+}
+.preloader[data-phase='leaving'] .preloader-inner {
+  transform: translateY(-12vh) scale(0.92);
+  opacity: 0;
+}
+.chalar-preloaded .preloader {
+  display: none;
+}
+.preloader-rings {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.preloader-ring {
+  position: absolute;
+  width: var(--r);
+  height: var(--r);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  animation: ring-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.preloader-ring.is-dashed {
+  border: 1.5px dashed rgba(255, 255, 255, 0.13);
+  animation:
+    ring-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) both,
+    ring-spin 40s linear infinite;
+}
+.preloader-ring.is-slow {
+  animation:
+    ring-in 1.4s cubic-bezier(0.16, 1, 0.3, 1) both,
+    ring-spin 70s linear infinite reverse;
+}
+.preloader[data-phase='leaving'] .preloader-rings {
+  transform: scale(1.35);
+  opacity: 0;
+  transition:
+    transform 0.95s cubic-bezier(0.76, 0, 0.24, 1),
+    opacity 0.7s ease;
+}
+@keyframes ring-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes ring-spin {
+  to { rotate: 360deg; }
+}
+.preloader-ghost {
+  /* flat grey silhouette, like the eatnaked.co intro */
+  filter: brightness(0) invert(0.2);
+}
+.preloader-count {
+  margin-top: 1.75rem;
+  font-family: var(--font-landing);
+  font-size: clamp(2.25rem, 4vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+@keyframes preloader-failsafe {
+  to {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* ---------- Section index wave ---------- */
+.index-wave {
+  animation: index-wave 1.6s linear infinite;
+}
+@keyframes index-wave {
+  from { transform: translateX(-12px); }
+  to { transform: translateX(0); }
+}
+
+/* ---------- Glow / ambient ---------- */
+.glow-breathe {
+  animation: glow-breathe 4.8s ease-in-out infinite;
+}
+.glow-breathe-slow {
+  animation: glow-breathe 8s ease-in-out infinite;
+}
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+
+/* ---------- Hero ---------- */
+.word-swap {
+  animation: word-swap 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes word-swap {
+  from { transform: translate3d(0, 105%, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+.hero-stage .hero-copy {
+  transform: translate3d(0, calc(var(--p, 0) * -90px), 0);
+  opacity: calc(1 - var(--p, 0) * 1.5);
+}
+.hero-stage .hero-mark {
+  transform: translate3d(0, calc(var(--p, 0) * 160px), 0) scale(calc(1 - var(--p, 0) * 0.35))
+    rotate(calc(var(--p, 0) * -32deg));
+  will-change: transform;
+}
+.hero-stage .hero-chip {
+  transform: translate3d(calc(var(--p, 0) * var(--dx) * 2.2), calc(var(--p, 0) * var(--dy) * 2.2), 0);
+  opacity: calc(1 - var(--p, 0) * 1.8);
+  will-change: transform, opacity;
+}
+.scroll-cue::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -40%;
+  width: 1px;
+  height: 40%;
+  background: #ea9072;
+  animation: scroll-cue 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes scroll-cue {
+  to { top: 100%; }
+}
+
+/* ---------- Scroll-lit manifesto ---------- */
+.scroll-word {
+  opacity: calc(0.14 + var(--w, 0) * 0.86);
+  transition: opacity 0.12s linear;
+}
+
+/* ---------- Sticky stacking cards ---------- */
+.stack-card {
+  transform-origin: 50% 0;
+  transform: scale(calc(1 - var(--covered, 0) * 0.07));
+  will-change: transform;
+}
+.stack-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #070d09;
+  opacity: calc(var(--covered, 0) * 0.45);
+  pointer-events: none;
+  border-radius: inherit;
+}
+.stack-card .stack-image {
+  transform: scale(calc(1.06 - var(--covered, 0) * 0.06));
+  transition: transform 0.2s linear;
+}
+
+/* ---------- Herb orbit ---------- */
+.orbit-pin {
+  --spin: calc(var(--p, 0) * 36deg);
+}
+.orbit-stage {
+  width: min(84vw, 60svh, 620px);
+  --r: calc(min(84vw, 60svh, 620px) * 0.41);
+}
+.orbit-core {
+  z-index: 10;
+  width: 36%;
+  height: 36%;
+  transform: translate(-50%, -50%) scale(calc(0.82 + var(--p, 0) * 0.18));
+  box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.03), 0 0 80px -10px rgba(111, 207, 95, 0.45);
+}
+.orbit-ring {
+  transform: rotate(var(--spin));
+  opacity: calc(var(--p, 0) * 3);
+}
+.orbit-item {
+  z-index: 5;
+  transform: translate(-50%, -50%) rotate(calc(var(--angle) + var(--spin)))
+    translateX(calc(var(--r) * var(--e, 0))) rotate(calc(-1 * (var(--angle) + var(--spin))))
+    scale(calc(0.3 + var(--e, 0) * 0.7));
+  opacity: clamp(0, calc(var(--e, 0) * 2.5), 1);
+  will-change: transform, opacity;
+}
+.orbit-thumb {
+  width: clamp(50px, 9vmin, 92px);
+  height: clamp(50px, 9vmin, 92px);
+  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.7);
+}
+.orbit-label {
+  min-width: 6.5rem;
+  opacity: clamp(0, calc((var(--e, 0) - 0.7) * 3.4), 1);
+}
+
+/* ---------- Pill → full-bleed media ---------- */
+.expand-pin {
+  --bw: 26vw;
+  --bh: 16vw;
+}
+.expand-media {
+  clip-path: inset(
+    calc((50% - var(--bh) / 2) * (1 - var(--e, 0)))
+    calc((50% - var(--bw) / 2) * (1 - var(--e, 0)))
+    round calc(999px * (1 - var(--e, 0)))
+  );
+  will-change: clip-path;
+}
+.expand-image {
+  transform: scale(calc(1.25 - var(--e, 0) * 0.25));
+}
+.expand-shade {
+  opacity: var(--c, 0);
+}
+.expand-word {
+  position: absolute;
+  top: 50%;
+  white-space: nowrap;
+  opacity: calc(1 - var(--e, 0) * 1.9);
+}
+.expand-word-left {
+  right: calc(50% + var(--bw) / 2 + 1.25rem);
+  transform: translate3d(calc(var(--e, 0) * -32vw), -50%, 0);
+}
+.expand-word-right {
+  left: calc(50% + var(--bw) / 2 + 1.25rem);
+  transform: translate3d(calc(var(--e, 0) * 32vw), -50%, 0);
+}
+.expand-kicker {
+  opacity: calc(1 - var(--e, 0) * 3);
+}
+.expand-caption {
+  opacity: var(--c, 0);
+  transform: translate3d(0, calc((1 - var(--c, 0)) * 32px), 0);
+}
+@media (max-width: 767px) {
+  .expand-pin {
+    --bw: 62vw;
+    --bh: 40vw;
+  }
+  .expand-word {
+    left: 0;
+    right: 0;
+    text-align: center;
+  }
+  .expand-word-left {
+    top: auto;
+    bottom: calc(50% + var(--bh) / 2 + 1rem);
+    transform: translate3d(0, calc(var(--e, 0) * -24svh), 0);
+  }
+  .expand-word-right {
+    top: calc(50% + var(--bh) / 2 + 1rem);
+    transform: translate3d(0, calc(var(--e, 0) * 24svh), 0);
+  }
+  .expand-kicker {
+    top: 12%;
+  }
+}
+
+/* ---------- Opposing sliding headlines ---------- */
+.slide-line {
+  width: max-content;
+  line-height: 0.95;
+  will-change: transform;
+}
+.slide-line-a {
+  transform: translate3d(calc(6vw - var(--p, 0) * 55vw), 0, 0);
+}
+.slide-line-b {
+  transform: translate3d(calc(-62vw + var(--p, 0) * 55vw), 0, 0);
+}
+.slide-pill {
+  transform: rotate(calc(-9deg + var(--p, 0) * 18deg));
+}
+
+/* ---------- Physics word pile ---------- */
+.physics-box {
+  cursor: grab;
+  touch-action: pan-y;
+}
+.physics-box.is-grabbing {
+  cursor: grabbing;
+}
+.physics-box:not([data-ready]) .physics-tag {
+  opacity: 0;
+}
+.physics-tag {
+  will-change: transform;
+  user-select: none;
+  transition: opacity 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-breathe,
+  .glow-breathe-slow,
+  .word-swap,
+  .index-wave,
+  .preloader-ring,
+  .scroll-cue::after {
+    animation: none !important;
+  }
+  .hero-stage .hero-copy,
+  .hero-stage .hero-mark,
+  .hero-stage .hero-chip {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .stack-card,
+  .stack-card .stack-image {
+    transform: none !important;
+  }
+  .stack-card::after {
+    opacity: 0 !important;
+  }
+  .slide-line-a,
+  .slide-line-b {
+    transform: translate3d(-10vw, 0, 0) !important;
+  }
+  .scroll-word {
+    opacity: 1 !important;
+  }
+  .preloader {
+    display: none;
+  }
 }

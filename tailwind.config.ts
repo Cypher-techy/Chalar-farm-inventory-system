@@ -38,6 +38,30 @@ const config: Config = {
           900: '#6a3427',
           950: '#391912',
         },
+        /* Brand colours sampled from the Chalar Farms logo artwork */
+        rust: {
+          300: '#c9785f',
+          400: '#b0583d',
+          500: '#943f28',
+          600: '#7a3220',
+          700: '#5f2618',
+          800: '#451c12',
+        },
+        leaf: {
+          200: '#c7f2bd',
+          300: '#97e486',
+          400: '#6fcf5f',
+          500: '#4da745',
+          600: '#3a8a35',
+          700: '#2c6a29',
+        },
+        /* Warm off-white used for light sections (eatnaked.co-style editorial cream) */
+        cream: {
+          50: '#fcfaf6',
+          100: '#f7f2ea',
+          200: '#efe6d8',
+          300: '#e2d4bf',
+        },
         ink: {
           50: '#f6f7f6',
           100: '#e7e9e7',
@@ -64,6 +88,7 @@ const config: Config = {
         card: '0 1px 2px rgba(16,24,20,0.04), 0 8px 24px -12px rgba(16,24,20,0.12)',
         lift: '0 2px 4px rgba(16,24,20,0.05), 0 22px 44px -22px rgba(16,24,20,0.28)',
         inset: 'inset 0 1px 0 rgba(255,255,255,0.6)',
+        glow: '0 0 0 1px rgba(111,207,95,0.18), 0 0 32px -6px rgba(111,207,95,0.45)',
       },
       transitionTimingFunction: {
         editorial: 'cubic-bezier(0.16, 1, 0.3, 1)',

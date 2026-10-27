@@ -343,3 +343,105 @@ export function useDragScroll<T extends HTMLElement = HTMLDivElement>() {
     nudge,
   };
 }
+
+export type ScrollProgressMode =
+  /** Tall wrapper with a sticky child: 0 when the wrapper top hits the viewport top, 1 when its bottom reaches the viewport bottom. */
+  | 'pin'
+  /** Element travelling through the viewport: 0 as its top enters from below, 1 as its bottom leaves above. */
+  | 'pass'
+  /** Element entering: 0 as its top enters from below, 1 when its top reaches the viewport top. */
+  | 'enter'
+  /** Element leaving (e.g. the hero): 0 while its top is at the viewport top, 1 once it has scrolled fully out. */
+  | 'exit';
+
+const clamp01 = (n: number) => (n < 0 ? 0 : n > 1 ? 1 : n);
+
+/**
+ * Scroll-scrubbed progress for scroll-driven sections.
+ *
+ * Writes `--p` (0 → 1) straight onto the element's style on each animation
+ * frame, so CSS `calc(var(--p) …)` can drive transforms without React
+ * re-rendering. An optional `onFrame` callback receives the same value for
+ * effects that need JS (per-item easing, counters, text highlights).
+ *
+ * Under prefers-reduced-motion the value is pinned at 1 (final state).
+ */
+export function useScrollProgressVar<T extends HTMLElement = HTMLDivElement>(
+  mode: ScrollProgressMode = 'pin',
+  onFrame?: (progress: number, node: T) => void
+) {
+  const ref = useRef<T | null>(null);
+  const frameCb = useRef(onFrame);
+  frameCb.current = onFrame;
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let raf = 0;
+    let last = -1;
+
+    const measure = () => {
+      raf = 0;
+      let p = 1;
+      if (!mq.matches) {
+        const rect = node.getBoundingClientRect();
+        const vh = window.innerHeight || 1;
+        if (mode === 'pin') {
+          const travel = rect.height - vh;
+          p = travel > 0 ? clamp01(-rect.top / travel) : rect.top <= 0 ? 1 : 0;
+        } else if (mode === 'pass') {
+          p = clamp01((vh - rect.top) / (vh + rect.height));
+        } else if (mode === 'enter') {
+          p = clamp01((vh - rect.top) / vh);
+        } else {
+          p = clamp01(-rect.top / (rect.height || 1));
+        }
+      }
+      if (Math.abs(p - last) < 0.0005) return;
+      last = p;
+      node.style.setProperty('--p', p.toFixed(4));
+      frameCb.current?.(p, node);
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(measure);
+    };
+
+    measure();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    mq.addEventListener('change', schedule);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      mq.removeEventListener('change', schedule);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [mode]);
+
+  return ref;
+}
+
+/** Cycles 0 → count-1 on an interval (paused under reduced motion). */
+export function useRotatingIndex(count: number, intervalMs = 2200) {
+  const [index, setIndex] = useState(0);
+  const reduced = usePrefersReducedMotion();
+  useEffect(() => {
+    if (reduced || count < 2) return;
+    const t = window.setInterval(() => setIndex((i) => (i + 1) % count), intervalMs);
+    return () => window.clearInterval(t);
+  }, [count, intervalMs, reduced]);
+  return index;
+}
+
+/** Smoothstep easing helper shared by scroll-scrubbed components. */
+export function easeInOut(t: number) {
+  const x = clamp01(t);
+  return x * x * (3 - 2 * x);
+}
+
+/** Maps progress `p` into a 0 → 1 local window [start, end]. */
+export function segment(p: number, start: number, end: number) {
+  return clamp01((p - start) / (end - start || 1));
+}

@@ -2,96 +2,14 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import {
-  ArrowUpRight,
-  Leaf,
-  Mail,
-  MapPin,
-  Phone,
-  ShieldCheck,
-  Snowflake,
-} from 'lucide-react';
-import { CustomerMarquee } from './marquee';
+import { Mail, MapPin, Phone, Snowflake } from 'lucide-react';
+import { LogoMark } from '@/components/brand/logo';
 import { NAV_LINKS } from './site-header';
-import { CERTIFICATIONS, COLD_CHAIN_SPECS, COMPANY } from './content';
-
-export function About() {
-  return (
-    <section id="about" className="relative overflow-hidden bg-white py-24 lg:py-32">
-      <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 sm:px-6 lg:grid-cols-2 lg:gap-20">
-        <div className="reveal">
-          <p className="kicker flex items-center gap-2.5 text-clay-600">
-            <span className="h-px w-8 bg-clay-400/70" aria-hidden />
-            About {COMPANY.name}
-          </p>
-          <h2 className="display display-lg mt-5 text-stone-900">
-            A certified grower of premium herbs, rooted in Taveta
-          </h2>
-          <div className="mt-6 space-y-5 leading-relaxed text-stone-600">
-            <p>
-              Chalar Farms Limited has been operating since {COMPANY.established}, producing and
-              exporting over 12 tonnes of fresh herbs every week. Production is centred at Madulu A
-              Village, Chala Ward, Taveta — beside Lake Chala on the Kenya–Tanzania border.
-            </p>
-            <p>
-              Around 150 people grow, handle and export the crop, 70% of them women and 75% youth.
-              Their work is coordinated through the Chalar Farms ERP: planting, harvest, packhouse,
-              quality, payroll, procurement, sales and logistics in one traceable record.
-            </p>
-          </div>
-
-          <ul className="mt-8 grid gap-3 sm:grid-cols-2">
-            {CERTIFICATIONS.map((c) => (
-              <li
-                key={c.code}
-                className="group flex items-start gap-3 rounded-xl border border-stone-200 bg-stone-50/70 px-4 py-3 transition-all duration-500 ease-editorial hover:-translate-y-0.5 hover:border-chalar-200 hover:bg-white hover:shadow-card"
-              >
-                <ShieldCheck
-                  className="mt-0.5 h-4 w-4 shrink-0 text-chalar-600 transition-transform duration-500 ease-editorial group-hover:scale-110"
-                  aria-hidden
-                />
-                <span className="leading-tight">
-                  <span className="block text-sm font-semibold text-stone-900">{c.code}</span>
-                  <span className="mt-0.5 block text-xs text-stone-500">{c.label}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="reveal-image relative">
-          <span
-            className="absolute -right-4 -top-4 hidden h-32 w-32 rounded-2xl border border-clay-200 bg-clay-50 lg:block"
-            aria-hidden
-          />
-          <div className="relative aspect-[4/5] overflow-hidden rounded-2xl shadow-lift sm:aspect-[5/5]">
-            <Image
-              src="/images/chalar/chalar-cold-chain-truck.jpg"
-              alt="Chalar Farms branded refrigerated delivery truck at the Taveta packhouse"
-              fill
-              sizes="(max-width: 1024px) 100vw, 46vw"
-              className="object-cover transition-transform duration-[1.4s] ease-editorial hover:scale-[1.04]"
-            />
-          </div>
-          <div className="absolute -bottom-6 left-4 right-4 rounded-2xl border border-white/12 bg-chalar-950/90 p-5 shadow-lift backdrop-blur-md sm:left-8 sm:right-auto sm:w-80">
-            <p className="kicker text-[9px] text-clay-300">Our people</p>
-            <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-serif text-lg font-semibold text-white tnum">
-              <span>150+ team</span>
-              <span className="text-stone-400">·</span>
-              <span>70% women</span>
-              <span className="text-stone-400">·</span>
-              <span>75% youth</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
+import { COLD_CHAIN_SPECS, COMPANY } from './content';
 
 export function Quality() {
   return (
-    <section id="quality" className="relative bg-stone-100 py-24 lg:py-32">
+    <section id="quality" className="relative bg-cream-200/60 py-24 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
           <div className="reveal-image relative order-2 aspect-[4/3] overflow-hidden rounded-2xl shadow-lift lg:order-1">
@@ -109,8 +27,8 @@ export function Quality() {
           </div>
 
           <div className="reveal order-1 lg:order-2">
-            <p className="kicker flex items-center gap-2.5 text-clay-600">
-              <span className="h-px w-8 bg-clay-400/70" aria-hidden />
+            <p className="kicker flex items-center gap-2.5 text-rust-500">
+              <span className="h-px w-8 bg-rust-400/60" aria-hidden />
               Quality management
             </p>
             <h2 className="display display-lg mt-5 text-stone-900">
@@ -137,7 +55,7 @@ export function Quality() {
           {COLD_CHAIN_SPECS.map((spec) => (
             <article
               key={spec.label}
-              className="group relative overflow-hidden rounded-2xl border border-stone-200 bg-white p-6 shadow-card transition-all duration-500 ease-editorial hover:-translate-y-1 hover:shadow-lift"
+              className="group relative overflow-hidden rounded-3xl border border-cream-300 bg-white p-6 shadow-card transition-all duration-500 ease-editorial hover:-translate-y-1 hover:shadow-lift"
             >
               <span className="absolute inset-x-0 top-0 h-0.5 origin-left scale-x-0 bg-clay-400 transition-transform duration-700 ease-editorial group-hover:scale-x-100" />
               <p className="kicker text-[10px] text-stone-500">{spec.label}</p>
@@ -161,130 +79,14 @@ export function Quality() {
   );
 }
 
-export function Customers() {
-  return (
-    <section id="customers" className="relative overflow-hidden bg-white py-24 lg:py-28">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="reveal max-w-2xl">
-          <p className="kicker flex items-center gap-2.5 text-clay-600">
-            <span className="h-px w-8 bg-clay-400/70" aria-hidden />
-            Reputable buyers
-          </p>
-          <h2 className="display display-lg mt-5 text-stone-900">
-            Ten customers who buy the same way: on specification, every week
-          </h2>
-          <p className="lede mt-5">
-            Chalar Farms supplies herb buyers and distributors across the United Kingdom, the
-            European Union, Southern Africa and the Middle East. Double-cut chives are supplied
-            through our sister farm, {COMPANY.sisterFarm}.
-          </p>
-        </div>
-      </div>
-
-      <div className="reveal mt-12">
-        <CustomerMarquee />
-      </div>
-
-      <p className="mx-auto mt-8 max-w-7xl px-4 text-xs text-stone-400 sm:px-6">
-        Customer names and markets as published by Chalar Farms. Shown as typographic wordmarks —
-        third-party logos are not reproduced here.
-      </p>
-    </section>
-  );
-}
-
-export function ContactCta() {
-  return (
-    <section id="contact" className="grain relative overflow-hidden bg-chalar-950 py-28 text-white lg:py-36">
-      <div className="absolute inset-0">
-        <Image
-          src="/images/chalar/culinary-herb-garden.jpg"
-          alt="Culinary herb garden beds at Chalar Farms"
-          fill
-          sizes="100vw"
-          className="ken-burns object-cover opacity-35"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-chalar-950 via-chalar-950/85 to-chalar-950/70" />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="reveal max-w-3xl">
-          <p className="kicker flex items-center gap-2.5 text-clay-300">
-            <span className="h-px w-8 bg-clay-400/70" aria-hidden />
-            Export enquiries
-          </p>
-          <h2 className="display display-xl mt-6">Let&rsquo;s talk herbs.</h2>
-          <p className="lede mt-6 text-stone-200">
-            Retail programmes, distributor volumes and specification questions go straight to the
-            Taveta team. Staff and department managers sign in to the ERP portal.
-          </p>
-          <div className="mt-9 flex flex-wrap gap-3">
-            <a
-              href={COMPANY.emailHref}
-              className="btn bg-clay-400 px-6 py-3 text-base font-semibold text-chalar-950 shadow-lift hover:bg-clay-300"
-            >
-              <Mail className="h-4 w-4" aria-hidden />
-              {COMPANY.email}
-            </a>
-            <a
-              href={COMPANY.phoneHref}
-              className="btn border border-white/25 bg-white/10 px-6 py-3 text-base font-semibold text-white backdrop-blur hover:border-white/45 hover:bg-white/15"
-            >
-              <Phone className="h-4 w-4" aria-hidden />
-              {COMPANY.phone}
-            </a>
-            <Link
-              href="/login"
-              className="btn px-6 py-3 text-base font-semibold text-clay-200 hover:text-white"
-            >
-              Staff portal
-              <ArrowUpRight className="h-4 w-4" aria-hidden />
-            </Link>
-          </div>
-        </div>
-
-        <div className="stagger mt-16 grid gap-6 border-t border-white/15 pt-8 sm:grid-cols-3">
-          <div>
-            <MapPin className="h-4 w-4 text-clay-400" aria-hidden />
-            <p className="kicker mt-3 text-[9px] text-clay-300">Farm &amp; packhouse</p>
-            <p className="mt-2 text-sm leading-relaxed text-stone-300">
-              {COMPANY.addressLines.map((line) => (
-                <span key={line} className="block">
-                  {line}
-                </span>
-              ))}
-            </p>
-          </div>
-          <div>
-            <Phone className="h-4 w-4 text-clay-400" aria-hidden />
-            <p className="kicker mt-3 text-[9px] text-clay-300">Telephone</p>
-            <a href={COMPANY.phoneHref} className="mt-2 block text-sm text-stone-300 hover:text-white">
-              {COMPANY.phone}
-            </a>
-          </div>
-          <div>
-            <Mail className="h-4 w-4 text-clay-400" aria-hidden />
-            <p className="kicker mt-3 text-[9px] text-clay-300">Email</p>
-            <a href={COMPANY.emailHref} className="mt-2 block text-sm text-stone-300 hover:text-white">
-              {COMPANY.email}
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export function SiteFooter() {
   return (
-    <footer className="border-t border-white/10 bg-chalar-950 text-stone-300">
+    <footer className="border-t border-white/10 bg-[#070d09] text-stone-300">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="reveal">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-chalar-600 text-white">
-                <Leaf className="h-5 w-5" aria-hidden />
-              </span>
+              <LogoMark variant="compact" size={44} decorative />
               <span className="font-serif text-xl font-semibold tracking-tight text-white">
                 {COMPANY.name}
               </span>

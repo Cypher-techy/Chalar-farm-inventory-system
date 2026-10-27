@@ -3,6 +3,9 @@ import type { Metadata, Viewport } from 'next';
    calls a third-party font CDN — better for privacy, CSP and offline deploys. */
 import '@fontsource-variable/inter/wght.css';
 import '@fontsource-variable/fraunces/opsz.css';
+// Landing-page display face (eatnaked.co-style grotesk); files load only where used.
+import '@fontsource-variable/inter-tight/wght.css';
+import '@fontsource-variable/inter-tight/wght-italic.css';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -23,7 +26,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

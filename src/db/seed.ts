@@ -3,20 +3,17 @@ import bcrypt from 'bcryptjs';
 import type { ChalarDatabase } from './index';
 import * as t from './schema';
 import { ALL_PERMISSIONS, INITIAL_SYSTEM_ROLES } from '@/lib/rbac-catalog';
+import { isDemoSeedEnabled } from '@/lib/demo-mode';
 
 /**
  * Seeds the Chalar Farms ERP with clearly-labelled development/demo data.
  * All seeded records are identifiable (email domain, doc numbers, comments).
  * In production deployments (ENABLE_DEMO_SEED=false) only system config,
- * roles, permissions and the initial Super Administrator are created.
+ * roles and permissions are seeded; the first Super Administrator comes from
+ * INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD (see ./bootstrap-admin.ts).
  */
 
-const isDemo = () => {
-  if (process.env.ENABLE_DEMO_SEED === 'false') return false;
-  if (process.env.ENABLE_DEMO_SEED === 'true') return true;
-  // Default: demo seed allowed outside production unless explicitly disabled.
-  return process.env.NODE_ENV !== 'production';
-};
+const isDemo = isDemoSeedEnabled;
 
 function rows<T>(result: unknown): T[] {
   const r = result as { rows?: T[] } | T[];
