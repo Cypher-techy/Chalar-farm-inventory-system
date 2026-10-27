@@ -13,6 +13,9 @@ import {
   DatabaseSchemaError,
   DatabaseUnavailableError,
   resolveDatabaseUrl,
+  cleanConnectionString,
+  describeMissingDatabaseUrl,
+  databaseFailureOf,
 } from '@/db/connection-config';
 
 const SUPABASE = 'postgresql://postgres.abcd:p%40ss@aws-1-eu-west-3.pooler.supabase.com:6543/postgres';
@@ -90,6 +93,58 @@ describe('Connection string discovery (Vercel ↔ Supabase integration)', () => 
     expect(cfg.connectionString).not.toMatch(/supa=|sslmode/);
     expect(cfg.ssl).toEqual({ rejectUnauthorized: false });
     expect(buildPgPoolConfig('postgres://u:p@h.example:6543/db?pgbouncer=true&connection_limit=1', {}).connectionString).not.toMatch(/pgbouncer|connection_limit/);
+  });
+});
+
+describe('Pasted values and precise DB_CONFIG diagnosis', () => {
+  const URL_ = 'postgresql://postgres.ref:pw@aws-1-eu-west-3.pooler.supabase.com:6543/postgres';
+
+  it('repairs common copy/paste damage without touching valid URLs', () => {
+    expect(cleanConnectionString(URL_)).toBe(URL_);
+    expect(cleanConnectionString(`  "${URL_}"  `)).toBe(URL_);
+    expect(cleanConnectionString(`'${URL_}';`)).toBe(URL_);
+    expect(cleanConnectionString(`DATABASE_URL="${URL_}"`)).toBe(URL_);
+    expect(cleanConnectionString(`export DATABASE_URL=${URL_}`)).toBe(URL_);
+    expect(cleanConnectionString('   ')).toBeUndefined();
+    expect(resolveDatabaseUrl({ DATABASE_URL: `"${URL_}"`, VERCEL: '1' }).url).toBe(URL_);
+  });
+
+  it('finds integration variables added with a custom prefix', () => {
+    const r = resolveDatabaseUrl({ STORAGE_POSTGRES_URL: URL_, VERCEL: '1' });
+    expect(r).toEqual({ url: URL_, source: 'STORAGE_POSTGRES_URL', ignoredDatabaseUrl: false });
+    expect(resolveDatabaseUrl({ SUPABASE_DB_URL: URL_ }).source).toBe('SUPABASE_DB_URL');
+    expect(resolveDatabaseUrl({ NEXT_PUBLIC_POSTGRES_URL: URL_ }).url).toBeUndefined();
+  });
+
+  it('explains a deployment with no database variables at all', () => {
+    const msg = describeMissingDatabaseUrl({ VERCEL: '1', VERCEL_ENV: 'production', SUPABASE_URL: 'https://x.supabase.co', NEXT_PUBLIC_SUPABASE_URL: 'https://x.supabase.co' });
+    expect(msg).toMatch(/^This Production deployment has no usable PostgreSQL connection string/);
+    expect(msg).toMatch(/Neither DATABASE_URL nor POSTGRES_URL is visible/);
+    expect(msg).toMatch(/NEXT_PUBLIC_SUPABASE_URL, SUPABASE_URL/);
+    expect(msg).toMatch(/Transaction pooler/);
+  });
+
+  it('names what is wrong with a present variable but never reveals its value', () => {
+    const secret = 'pw-very-secret-123';
+    const msg = describeMissingDatabaseUrl({
+      VERCEL: '1', VERCEL_ENV: 'preview',
+      DATABASE_URL: 'https://iqrmudlwstxmuaetmoat.supabase.co',
+      POSTGRES_URL: 'pglite://./.data/chalar-pg',
+      POSTGRES_PRISMA_URL: `mysql://u:${secret}@h/db`,
+      POSTGRES_PASSWORD: secret,
+    });
+    expect(msg).toMatch(/^This Preview deployment/);
+    expect(msg).toMatch(/DATABASE_URL holds the Supabase project\/API URL/);
+    expect(msg).toMatch(/POSTGRES_URL points to the embedded local-development database/);
+    expect(msg).toMatch(/POSTGRES_PRISMA_URL starts with "mysql:"/);
+    expect(msg).toMatch(/POSTGRES_PASSWORD/);
+    expect(msg).not.toContain(secret);
+    expect(msg).not.toContain('iqrmudlwstxmuaetmoat');
+  });
+
+  it('the specific message reaches the sign-in page / health hint', () => {
+    const f = databaseFailureOf(new DatabaseConfigError('This Production deployment has no usable PostgreSQL connection string.'));
+    expect(f).toEqual({ code: 'DB_CONFIG', hint: 'This Production deployment has no usable PostgreSQL connection string.' });
   });
 });
 
