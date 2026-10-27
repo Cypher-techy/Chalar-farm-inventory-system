@@ -3,6 +3,11 @@ const nextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: ['*.e2b.app', 'localhost', '127.0.0.1'],
   serverExternalPackages: ['@electric-sql/pglite', 'pg', 'bcryptjs'],
+  // Migrations are read from disk at runtime (src/db/index.ts); make sure the SQL
+  // files ship inside every serverless function bundle on Vercel.
+  outputFileTracingIncludes: {
+    '/**': ['./drizzle/migrations/**/*'],
+  },
   images: {
     unoptimized: false,
     remotePatterns: [

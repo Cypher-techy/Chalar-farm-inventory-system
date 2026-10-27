@@ -30,7 +30,7 @@ const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_SIZE_BYTES || 10 * 1024 *
 
 function storageRoot(): string {
   return path.resolve(
-    process.cwd(),
+    /*turbopackIgnore: true*/ process.cwd(),
     process.env.PRIVATE_STORAGE_PATH || './.storage/private-documents'
   );
 }
@@ -79,7 +79,7 @@ export async function storePrivateDocument(params: {
   const docCode = `DOC-${Date.now()}-${randomBytes(3).toString('hex').toUpperCase()}`;
   const safeName = sanitizeFilename(filename);
   const storageKey = `${docCode}/${safeName}`;
-  const fullPath = path.join(storageRoot(), storageKey);
+  const fullPath = path.join(/*turbopackIgnore: true*/ storageRoot(), storageKey);
 
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
   await fs.writeFile(fullPath, data);
@@ -173,7 +173,7 @@ export async function canAccessDocument(
 }
 
 export async function readDocumentBytes(doc: DocumentRecord): Promise<Buffer> {
-  const fullPath = path.join(storageRoot(), doc.storageKey);
+  const fullPath = path.join(/*turbopackIgnore: true*/ storageRoot(), doc.storageKey);
   const data = await fs.readFile(fullPath);
   const checksum = createHash('sha256').update(data).digest('hex');
   if (checksum !== doc.checksumSha256) {

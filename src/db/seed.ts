@@ -21,40 +21,144 @@ function rows<T>(result: unknown): T[] {
   return r.rows ?? [];
 }
 
+/** Budgets and balances are illustrative and are only applied when demo seeding is enabled. */
+const SEED_DEPARTMENTS = [
+  { code: 'EXEC', name: 'Executive Management', costCenter: 'CC-100', budget: '25000000.00' },
+  { code: 'FARM', name: 'Farm Operations', costCenter: 'CC-210', budget: '48000000.00' },
+  { code: 'PACK', name: 'Packhouse & Production', costCenter: 'CC-220', budget: '21000000.00' },
+  { code: 'QAFOOD', name: 'Quality Assurance & Food Safety', costCenter: 'CC-230', budget: '9500000.00' },
+  { code: 'INV', name: 'Inventory & Warehouse', costCenter: 'CC-310', budget: '14000000.00' },
+  { code: 'PROC', name: 'Procurement & Suppliers', costCenter: 'CC-320', budget: '6500000.00' },
+  { code: 'SALEX', name: 'Sales & Export', costCenter: 'CC-410', budget: '12000000.00' },
+  { code: 'LOG', name: 'Logistics & Dispatch', costCenter: 'CC-420', budget: '15500000.00' },
+  { code: 'FIN', name: 'Finance & Payroll', costCenter: 'CC-510', budget: '8200000.00' },
+  { code: 'HR', name: 'Human Resources', costCenter: 'CC-520', budget: '7400000.00' },
+  { code: 'IT', name: 'IT & Systems', costCenter: 'CC-530', budget: '3600000.00' },
+  { code: 'MAINT', name: 'Equipment & Maintenance', costCenter: 'CC-610', budget: '6800000.00' },
+  { code: 'COMP', name: 'Compliance & Audit', costCenter: 'CC-710', budget: '4200000.00' },
+];
+
+const SEED_ACCOUNTS = [
+  { code: '1000', name: 'Cash & Cash Equivalents', type: 'ASSET', bal: '18450000.00' },
+  { code: '1100', name: 'Trade Receivables (Export Customers)', type: 'ASSET', bal: '23870000.00' },
+  { code: '1200', name: 'Inventory — Fresh Produce & Inputs', type: 'ASSET', bal: '31600000.00' },
+  { code: '1500', name: 'Property, Plant & Equipment', type: 'ASSET', bal: '142300000.00' },
+  { code: '2000', name: 'Trade Payables (Suppliers)', type: 'LIABILITY', bal: '12740000.00' },
+  { code: '2100', name: 'PAYE Payable (KRA)', type: 'LIABILITY', bal: '3120000.00' },
+  { code: '2110', name: 'NSSF Payable', type: 'LIABILITY', bal: '860000.00' },
+  { code: '2120', name: 'SHIF Payable (MoH)', type: 'LIABILITY', bal: '740000.00' },
+  { code: '2130', name: 'Affordable Housing Levy Payable', type: 'LIABILITY', bal: '470000.00' },
+  { code: '3000', name: 'Retained Earnings', type: 'EQUITY', bal: '54000000.00' },
+  { code: '4000', name: 'Export Sales Revenue — Fresh Herbs', type: 'REVENUE', bal: '186400000.00' },
+  { code: '4100', name: 'Local Sales Revenue', type: 'REVENUE', bal: '9800000.00' },
+  { code: '5000', name: 'Cost of Goods Sold — Farm Production', type: 'EXPENSE', bal: '74200000.00' },
+  { code: '5100', name: 'Packaging & Cold Chain Costs', type: 'EXPENSE', bal: '18600000.00' },
+  { code: '5200', name: 'Airfreight & Logistics Costs', type: 'EXPENSE', bal: '31400000.00' },
+  { code: '6000', name: 'Employee Salaries & Wages', type: 'EXPENSE', bal: '52800000.00' },
+  { code: '6100', name: 'Statutory Employer Contributions', type: 'EXPENSE', bal: '4900000.00' },
+  { code: '6200', name: 'Utilities (Power & Water)', type: 'EXPENSE', bal: '8700000.00' },
+  { code: '6300', name: 'Repairs & Maintenance', type: 'EXPENSE', bal: '4300000.00' },
+  { code: '6400', name: 'Certification & Compliance Costs', type: 'EXPENSE', bal: '2600000.00' },
+  { code: '7000', name: 'Bank Charges & Interest', type: 'EXPENSE', bal: '1500000.00' },
+];
+
+/** Illustrative fleet — demo databases only. */
+const DEMO_VEHICLES = [
+  { reg: 'KDD 441X', type: 'Refrigerated Truck (4 Tonne)', model: 'Isuzu NPR Reefer', min: '-2.0', max: '2.0', driver: 'Joseph Mwakio', phone: '+254 722 118 443', lic: 'DL-KE-8843921', route: 'Taveta Farm → JKIA Cargo Terminal, Nairobi' },
+  { reg: 'KCX 902H', type: 'Refrigerated Truck (2 Tonne)', model: 'Fuso Canter Reefer', min: '2.0', max: '4.0', driver: 'Peter Chacha', phone: '+254 733 902 118', lic: 'DL-KE-7712044', route: 'Taveta Farm → Mombasa Port (sea freight consolidations)' },
+  { reg: 'KDG 115B', type: 'Field Irrigation Bowser', model: 'Toyota Dyna Water Tanker', min: '0.0', max: '0.0', driver: 'Ali Juma', phone: '+254 711 348 920', lic: 'DL-KE-6621847', route: 'Internal — Chala Ward field circuit' },
+  { reg: 'KCB 771M', type: 'Farm Tractor', model: 'Massey Ferguson 375', min: '0.0', max: '0.0', driver: 'Samuel Mwenda', phone: '+254 720 664 115', lic: 'DL-KE-5590112', route: 'Internal — Land preparation & seedbed' },
+  { reg: 'KDZ 510F', type: 'Staff Shuttle', model: 'Toyota Hiace', min: '0.0', max: '0.0', driver: 'Grace Njeri', phone: '+254 745 220 087', lic: 'DL-KE-9930211', route: 'Voi ⇄ Taveta staff transport' },
+];
+
+/** Bump when seedSystemConfig gains new configuration that existing databases should receive. */
+const CONFIG_SEED_VERSION = '1';
+const SEED_MARKER_KEY = 'system.config_seed_version';
+
+/**
+ * Seeds system configuration once per database (idempotent; callers run it in a
+ * transaction under an advisory lock — see getDb). Demo data is only added to a
+ * brand-new database, never mixed into one that already holds records.
+ */
 export async function ensureSeeded(db: ChalarDatabase): Promise<void> {
+  const marker = rows<{ setting_value: string }>(
+    await db.execute(sql`SELECT setting_value FROM system_settings WHERE setting_key = ${SEED_MARKER_KEY}`)
+  );
+  if (marker[0]?.setting_value === CONFIG_SEED_VERSION) return;
+
   const existing = rows<{ id: number }>(
     await db.execute(sql`SELECT id FROM roles LIMIT 1`)
   );
-  if (existing.length > 0) return;
+  const freshDatabase = existing.length === 0;
 
   await seedSystemConfig(db);
-  if (isDemo()) {
+  if (freshDatabase && isDemo()) {
     await seedDemoData(db);
+  }
+  if (!freshDatabase && !isDemo()) {
+    await removeLegacyIllustrativeFigures(db);
+  }
+
+  await db.execute(sql`
+    INSERT INTO system_settings (setting_key, setting_value, category, description)
+    VALUES (${SEED_MARKER_KEY}, ${CONFIG_SEED_VERSION}, 'SYSTEM', 'Internal: version of the system configuration seed applied to this database.')
+    ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value;
+  `);
+}
+
+/**
+ * Builds before config-seed v1 wrote illustrative budgets, account balances and
+ * a sample fleet even into production databases. On a production upgrade, clear
+ * only rows that still hold those exact seeded values — anything staff have
+ * edited or that other records reference is left untouched.
+ */
+async function removeLegacyIllustrativeFigures(db: ChalarDatabase): Promise<void> {
+  let cleared = 0;
+  for (const d of SEED_DEPARTMENTS) {
+    const r = await db.execute(sql`
+      UPDATE departments SET budget_allocated_kes = 0
+      WHERE code = ${d.code} AND budget_allocated_kes = ${d.budget}::numeric
+    `);
+    cleared += Number((r as { rowCount?: number; affectedRows?: number }).rowCount ?? (r as { affectedRows?: number }).affectedRows ?? 0);
+  }
+  for (const a of SEED_ACCOUNTS) {
+    const r = await db.execute(sql`
+      UPDATE chart_of_accounts SET balance_kes = 0
+      WHERE account_code = ${a.code} AND balance_kes = ${a.bal}::numeric
+    `);
+    cleared += Number((r as { rowCount?: number; affectedRows?: number }).rowCount ?? (r as { affectedRows?: number }).affectedRows ?? 0);
+  }
+  for (const v of DEMO_VEHICLES) {
+    await db.execute(sql`SAVEPOINT chalar_legacy_vehicle`);
+    try {
+      const r = await db.execute(sql`
+        DELETE FROM vehicles
+        WHERE registration_number = ${v.reg} AND driver_name = ${v.driver} AND driver_license_no = ${v.lic}
+      `);
+      cleared += Number((r as { rowCount?: number; affectedRows?: number }).rowCount ?? (r as { affectedRows?: number }).affectedRows ?? 0);
+      await db.execute(sql`RELEASE SAVEPOINT chalar_legacy_vehicle`);
+    } catch {
+      // Referenced by trips/maintenance records — keep it.
+      await db.execute(sql`ROLLBACK TO SAVEPOINT chalar_legacy_vehicle`);
+    }
+  }
+  if (cleared > 0) {
+    console.warn(`[chalar] Cleared ${cleared} illustrative budget/balance/fleet records left by an earlier build (production mode).`);
   }
 }
 
 async function seedSystemConfig(db: ChalarDatabase): Promise<void> {
+  // Monetary figures below (department budgets, account balances) and the fleet
+  // list are illustrative demo values. Production databases start at zero / empty
+  // so no invented financials or people appear in a live system.
+  const demo = isDemo();
+
   // Departments
-  const departments = [
-    { code: 'EXEC', name: 'Executive Management', costCenter: 'CC-100', budget: '25000000.00' },
-    { code: 'FARM', name: 'Farm Operations', costCenter: 'CC-210', budget: '48000000.00' },
-    { code: 'PACK', name: 'Packhouse & Production', costCenter: 'CC-220', budget: '21000000.00' },
-    { code: 'QAFOOD', name: 'Quality Assurance & Food Safety', costCenter: 'CC-230', budget: '9500000.00' },
-    { code: 'INV', name: 'Inventory & Warehouse', costCenter: 'CC-310', budget: '14000000.00' },
-    { code: 'PROC', name: 'Procurement & Suppliers', costCenter: 'CC-320', budget: '6500000.00' },
-    { code: 'SALEX', name: 'Sales & Export', costCenter: 'CC-410', budget: '12000000.00' },
-    { code: 'LOG', name: 'Logistics & Dispatch', costCenter: 'CC-420', budget: '15500000.00' },
-    { code: 'FIN', name: 'Finance & Payroll', costCenter: 'CC-510', budget: '8200000.00' },
-    { code: 'HR', name: 'Human Resources', costCenter: 'CC-520', budget: '7400000.00' },
-    { code: 'IT', name: 'IT & Systems', costCenter: 'CC-530', budget: '3600000.00' },
-    { code: 'MAINT', name: 'Equipment & Maintenance', costCenter: 'CC-610', budget: '6800000.00' },
-    { code: 'COMP', name: 'Compliance & Audit', costCenter: 'CC-710', budget: '4200000.00' },
-  ];
-  for (const d of departments) {
+  for (const d of SEED_DEPARTMENTS) {
     const description = `${d.name} department of Chalar Farms Limited, Taita-Taveta, Kenya.`;
     await db.execute(sql`
       INSERT INTO departments (code, name, description, cost_center_code, budget_allocated_kes)
-      VALUES (${d.code}, ${d.name}, ${description}, ${d.costCenter}, ${d.budget})
+      VALUES (${d.code}, ${d.name}, ${description}, ${d.costCenter}, ${demo ? d.budget : '0.00'})
       ON CONFLICT (code) DO NOTHING;
     `);
   }
@@ -107,10 +211,15 @@ async function seedSystemConfig(db: ChalarDatabase): Promise<void> {
       ON CONFLICT (code) DO NOTHING;
     `);
   }
+  // unit_conversions has no unique key, so guard against duplicates on re-seed
   await db.execute(sql`
-    INSERT INTO unit_conversions (from_uom_code, to_uom_code, multiplier) VALUES
-      ('G', 'KG', 0.001), ('CRATE', 'KG', 15.0), ('KG', 'G', 1000.0)
-    ON CONFLICT DO NOTHING;
+    INSERT INTO unit_conversions (from_uom_code, to_uom_code, multiplier)
+    SELECT v.f, v.t, v.m FROM (VALUES
+      ('G', 'KG', 0.001::numeric), ('CRATE', 'KG', 15.0::numeric), ('KG', 'G', 1000.0::numeric)
+    ) AS v(f, t, m)
+    WHERE NOT EXISTS (
+      SELECT 1 FROM unit_conversions u WHERE u.from_uom_code = v.f AND u.to_uom_code = v.t
+    );
   `);
 
   // Product categories
@@ -133,33 +242,10 @@ async function seedSystemConfig(db: ChalarDatabase): Promise<void> {
   }
 
   // Chart of accounts (KEFRIAS-aligned simplified structure)
-  const accounts = [
-    { code: '1000', name: 'Cash & Cash Equivalents', type: 'ASSET', bal: '18450000.00' },
-    { code: '1100', name: 'Trade Receivables (Export Customers)', type: 'ASSET', bal: '23870000.00' },
-    { code: '1200', name: 'Inventory — Fresh Produce & Inputs', type: 'ASSET', bal: '31600000.00' },
-    { code: '1500', name: 'Property, Plant & Equipment', type: 'ASSET', bal: '142300000.00' },
-    { code: '2000', name: 'Trade Payables (Suppliers)', type: 'LIABILITY', bal: '12740000.00' },
-    { code: '2100', name: 'PAYE Payable (KRA)', type: 'LIABILITY', bal: '3120000.00' },
-    { code: '2110', name: 'NSSF Payable', type: 'LIABILITY', bal: '860000.00' },
-    { code: '2120', name: 'SHIF Payable (MoH)', type: 'LIABILITY', bal: '740000.00' },
-    { code: '2130', name: 'Affordable Housing Levy Payable', type: 'LIABILITY', bal: '470000.00' },
-    { code: '3000', name: 'Retained Earnings', type: 'EQUITY', bal: '54000000.00' },
-    { code: '4000', name: 'Export Sales Revenue — Fresh Herbs', type: 'REVENUE', bal: '186400000.00' },
-    { code: '4100', name: 'Local Sales Revenue', type: 'REVENUE', bal: '9800000.00' },
-    { code: '5000', name: 'Cost of Goods Sold — Farm Production', type: 'EXPENSE', bal: '74200000.00' },
-    { code: '5100', name: 'Packaging & Cold Chain Costs', type: 'EXPENSE', bal: '18600000.00' },
-    { code: '5200', name: 'Airfreight & Logistics Costs', type: 'EXPENSE', bal: '31400000.00' },
-    { code: '6000', name: 'Employee Salaries & Wages', type: 'EXPENSE', bal: '52800000.00' },
-    { code: '6100', name: 'Statutory Employer Contributions', type: 'EXPENSE', bal: '4900000.00' },
-    { code: '6200', name: 'Utilities (Power & Water)', type: 'EXPENSE', bal: '8700000.00' },
-    { code: '6300', name: 'Repairs & Maintenance', type: 'EXPENSE', bal: '4300000.00' },
-    { code: '6400', name: 'Certification & Compliance Costs', type: 'EXPENSE', bal: '2600000.00' },
-    { code: '7000', name: 'Bank Charges & Interest', type: 'EXPENSE', bal: '1500000.00' },
-  ];
-  for (const a of accounts) {
+  for (const a of SEED_ACCOUNTS) {
     await db.execute(sql`
       INSERT INTO chart_of_accounts (account_code, account_name, account_type, balance_kes)
-      VALUES (${a.code}, ${a.name}, ${a.type}, ${a.bal})
+      VALUES (${a.code}, ${a.name}, ${a.type}, ${demo ? a.bal : '0.00'})
       ON CONFLICT (account_code) DO NOTHING;
     `);
   }
@@ -270,15 +356,9 @@ async function seedSystemConfig(db: ChalarDatabase): Promise<void> {
     `);
   }
 
-  // Asset & fleet maintenance (curated)
-  const vehicles = [
-    { reg: 'KDD 441X', type: 'Refrigerated Truck (4 Tonne)', model: 'Isuzu NPR Reefer', min: '-2.0', max: '2.0', driver: 'Joseph Mwakio', phone: '+254 722 118 443', lic: 'DL-KE-8843921', route: 'Taveta Farm → JKIA Cargo Terminal, Nairobi' },
-    { reg: 'KCX 902H', type: 'Refrigerated Truck (2 Tonne)', model: 'Fuso Canter Reefer', min: '2.0', max: '4.0', driver: 'Peter Chacha', phone: '+254 733 902 118', lic: 'DL-KE-7712044', route: 'Taveta Farm → Mombasa Port (sea freight consolidations)' },
-    { reg: 'KDG 115B', type: 'Field Irrigation Bowser', model: 'Toyota Dyna Water Tanker', min: '0.0', max: '0.0', driver: 'Ali Juma', phone: '+254 711 348 920', lic: 'DL-KE-6621847', route: 'Internal — Chala Ward field circuit' },
-    { reg: 'KCB 771M', type: 'Farm Tractor', model: 'Massey Ferguson 375', min: '0.0', max: '0.0', driver: 'Samuel Mwenda', phone: '+254 720 664 115', lic: 'DL-KE-5590112', route: 'Internal — Land preparation & seedbed' },
-    { reg: 'KDZ 510F', type: 'Staff Shuttle', model: 'Toyota Hiace', min: '0.0', max: '0.0', driver: 'Grace Njeri', phone: '+254 745 220 087', lic: 'DL-KE-9930211', route: 'Voi ⇄ Taveta staff transport' },
-  ];
-  for (const v of vehicles) {
+  // Fleet (demo only — real vehicles, drivers and licences are entered by staff)
+  if (!demo) return;
+  for (const v of DEMO_VEHICLES) {
     await db.execute(sql`
       INSERT INTO vehicles (registration_number, vehicle_type, make_model, reefer_temp_min_c, reefer_temp_max_c, driver_name, driver_phone, driver_license_no, current_route)
       VALUES (${v.reg}, ${v.type}, ${v.model}, ${v.min}, ${v.max}, ${v.driver}, ${v.phone}, ${v.lic}, ${v.route})

@@ -6,6 +6,15 @@ import { drizzle as drizzlePg, NodePgDatabase } from 'drizzle-orm/node-postgres'
 import pg from 'pg';
 import * as schema from './schema';
 import { sql } from 'drizzle-orm';
+import {
+  buildPgPoolConfig,
+  DatabaseConfigError,
+  DatabaseUnavailableError,
+  isPostgresUrl,
+  isServerlessHost,
+} from './connection-config';
+
+export { DatabaseUnavailableError, databaseFailureOf } from './connection-config';
 
 export type ChalarDatabase = PgliteDatabase<typeof schema> | NodePgDatabase<typeof schema>;
 
@@ -16,143 +25,260 @@ declare global {
   var __chalarDbInitPromise: Promise<ChalarDatabase> | undefined;
   // eslint-disable-next-line no-var
   var __chalarPgliteClient: PGlite | undefined;
+  // eslint-disable-next-line no-var
+  var __chalarDbClose: (() => Promise<void>) | undefined;
 }
 
-function getMigrationSqlStatements(): string[] {
+/* ------------------------------------------------------------------------- */
+/* Migrations                                                                 */
+/* ------------------------------------------------------------------------- */
+
+const MIGRATIONS_TABLE = 'chalar_schema_migrations';
+/** Arbitrary constants for pg_advisory_xact_lock — serialise concurrent cold starts. */
+const MIGRATION_LOCK_KEY = 72917001;
+const SEED_LOCK_KEY = 72917002;
+
+interface MigrationFile {
+  name: string;
+  statements: string[];
+}
+
+function readMigrationFiles(): MigrationFile[] {
   const migrationsDir = path.join(process.cwd(), 'drizzle', 'migrations');
   if (!fs.existsSync(migrationsDir)) {
-    return [];
+    throw new DatabaseConfigError(
+      `Migrations folder not found at ${migrationsDir}. Make sure drizzle/migrations is deployed with the app.`
+    );
   }
-  const files = fs
+  return fs
     .readdirSync(migrationsDir)
     .filter((f) => f.endsWith('.sql'))
-    .sort();
-
-  const statements: string[] = [];
-  for (const file of files) {
-    const content = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-    const chunks = content
-      .split('--> statement-breakpoint')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    statements.push(...chunks);
-  }
-  return statements;
+    .sort()
+    .map((name) => ({
+      name,
+      statements: fs
+        .readFileSync(path.join(migrationsDir, name), 'utf8')
+        .split('--> statement-breakpoint')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    }));
 }
 
-export async function applySchemaMigrations(db: ChalarDatabase): Promise<void> {
-  // Check if roles table already exists
-  const check = await db.execute(sql`
-    SELECT EXISTS (
-      SELECT FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name = 'roles'
-    ) AS "exists";
-  `);
-  const row = (check as unknown as { rows?: Array<{ exists: boolean }> }).rows?.[0];
-  if (row?.exists) {
-    return;
-  }
+function resultRows<T>(result: unknown): T[] {
+  const r = result as { rows?: T[] } | T[];
+  return Array.isArray(r) ? r : (r.rows ?? []);
+}
 
-  const statements = getMigrationSqlStatements();
-  for (const stmt of statements) {
-    try {
-      await db.execute(sql.raw(stmt));
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes('already exists')) {
-        throw err;
-      }
+function isAlreadyExistsError(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let i = 0; i < 5 && cur && typeof cur === 'object'; i++) {
+    const code = (cur as { code?: unknown }).code;
+    const msg = String((cur as { message?: unknown }).message ?? '');
+    if (code === '42P07' || code === '42710' || code === '42701' || code === '42P06' || /already exists/i.test(msg)) {
+      return true;
     }
+    cur = (cur as { cause?: unknown }).cause;
   }
+  return false;
 }
 
-async function createDatabaseConnection(): Promise<ChalarDatabase> {
-  const dbUrl = process.env.DATABASE_URL || 'pglite://./.data/chalar-pg';
-
-  if (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://')) {
-    const pool = new pg.Pool({
-      connectionString: dbUrl,
-      max: 10,
-    });
-    const db = drizzlePg(pool, { schema });
-    await applySchemaMigrations(db);
-    return db;
+/**
+ * Applies pending SQL migrations from drizzle/migrations.
+ *
+ * - Runs in ONE transaction under an advisory lock: concurrent serverless cold
+ *   starts queue up instead of racing, and a timeout/crash can never leave a
+ *   half-created schema behind (previously a partial schema was treated as done).
+ * - Each applied file is recorded in chalar_schema_migrations.
+ * - Databases created by older builds (tables present, no tracking rows) are
+ *   brought up to date idempotently, statement by statement under savepoints.
+ */
+export async function applySchemaMigrations(db: ChalarDatabase): Promise<void> {
+  const files = readMigrationFiles();
+  if (files.length === 0) {
+    throw new DatabaseConfigError('No .sql files found in drizzle/migrations.');
   }
 
-  // Embedded PostgreSQL 16 via PGlite
-  const isMemory = dbUrl === 'memory://' || process.env.VITEST === 'true';
-  let client: PGlite;
+  await (db as PgliteDatabase<typeof schema>).transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${MIGRATION_LOCK_KEY})`);
+    await tx.execute(
+      sql.raw(
+        `CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE} (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`
+      )
+    );
+    const applied = new Set(
+      resultRows<{ name: string }>(await tx.execute(sql.raw(`SELECT name FROM ${MIGRATIONS_TABLE}`))).map((r) => r.name)
+    );
+    const pending = files.filter((f) => !applied.has(f.name));
+    if (pending.length === 0) return;
 
-  if (isMemory) {
-    client = new PGlite();
-  } else {
-    const rawPath = dbUrl.replace(/^pglite:\/\//, '');
-    const resolvedDir = path.resolve(process.cwd(), rawPath);
-    fs.mkdirSync(path.dirname(resolvedDir), { recursive: true });
-    client = new PGlite(resolvedDir);
-  }
+    const legacyRows = resultRows<{ exists: boolean }>(
+      await tx.execute(sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'roles'
+        ) AS "exists"
+      `)
+    );
+    const legacy = applied.size === 0 && Boolean(legacyRows[0]?.exists);
 
-  globalThis.__chalarPgliteClient = client;
-  const db = drizzlePglite(client, { schema });
-
-  try {
-    await applySchemaMigrations(db);
-  } catch (err) {
-    // PGlite is an embedded single-process database. If a previous process was
-    // killed (dev-server restart, crashed script) it can leave a stale
-    // postmaster lock behind, which makes the first query fail. Clear the stale
-    // lock files and retry once rather than serving a dead database.
-    const msg = err instanceof Error ? err.message : String(err);
-    const dataDir = isMemory ? null : path.resolve(process.cwd(), dbUrl.replace(/^pglite:\/\//, ''));
-    if (dataDir && fs.existsSync(dataDir)) {
-      const stale = ['postmaster.pid', '.s.PGSQL.5432', '.s.PGSQL.5432.lock', '.s.PGSQL.5432.lock.out'];
-      for (const f of stale) {
-        const p = path.join(dataDir, f);
-        if (fs.existsSync(p)) {
-          try {
-            fs.rmSync(p, { force: true });
-          } catch {
-            /* ignore */
-          }
+    for (const file of pending) {
+      for (const [i, stmt] of file.statements.entries()) {
+        if (!legacy) {
+          await tx.execute(sql.raw(stmt));
+          continue;
+        }
+        const sp = `chalar_mig_${i}`;
+        await tx.execute(sql.raw(`SAVEPOINT ${sp}`));
+        try {
+          await tx.execute(sql.raw(stmt));
+          await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
+        } catch (err) {
+          await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${sp}`));
+          if (!isAlreadyExistsError(err)) throw err;
         }
       }
-      const retryClient = new PGlite(dataDir);
-      globalThis.__chalarPgliteClient = retryClient;
-      const retryDb = drizzlePglite(retryClient, { schema });
-      await applySchemaMigrations(retryDb);
-      console.warn(
-        `[chalar-db] Cleared a stale PGlite lock and reconnected (first attempt failed: ${msg.slice(0, 120)}).`
-      );
-      return retryDb;
+      await tx.execute(sql`INSERT INTO chalar_schema_migrations (name) VALUES (${file.name}) ON CONFLICT (name) DO NOTHING`);
+    }
+  });
+}
+
+/** Seeds configuration (and demo data when enabled) atomically, once, under a lock. */
+async function seedAtomically(db: ChalarDatabase): Promise<void> {
+  const { ensureSeeded } = await import('./seed-runner');
+  await (db as PgliteDatabase<typeof schema>).transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${SEED_LOCK_KEY})`);
+    await ensureSeeded(tx as unknown as ChalarDatabase);
+  });
+}
+
+/* ------------------------------------------------------------------------- */
+/* Connections                                                                */
+/* ------------------------------------------------------------------------- */
+
+interface DatabaseConnection {
+  db: ChalarDatabase;
+  close: () => Promise<void>;
+}
+
+async function createDatabaseConnection(): Promise<DatabaseConnection> {
+  const configured = process.env.DATABASE_URL?.trim();
+
+  if (isPostgresUrl(configured)) {
+    const pool = new pg.Pool(buildPgPoolConfig(configured as string));
+    // An idle client losing its connection must not crash the server process.
+    pool.on('error', (err) => console.error('[chalar-db] idle PostgreSQL client error:', err.message));
+    const db = drizzlePg(pool, { schema });
+    try {
+      await applySchemaMigrations(db);
+    } catch (err) {
+      await pool.end().catch(() => undefined);
+      throw err;
+    }
+    return { db, close: () => pool.end() };
+  }
+
+  if (configured && !configured.startsWith('pglite://') && configured !== 'memory://') {
+    throw new DatabaseConfigError(
+      'DATABASE_URL must start with postgresql:// (or pglite:// for local development).'
+    );
+  }
+  if (isServerlessHost()) {
+    throw new DatabaseConfigError(
+      configured
+        ? 'DATABASE_URL points to the embedded database, which cannot run on Vercel (read-only, ephemeral filesystem). Set it to your PostgreSQL / Supabase connection string.'
+        : 'DATABASE_URL is not set. On Vercel it must be your PostgreSQL / Supabase connection string — the embedded development database cannot run there.'
+    );
+  }
+
+  const dbUrl: string = configured || 'pglite://./.data/chalar-pg';
+  // Embedded PostgreSQL via PGlite (local development / single-server installs)
+  const isMemory = dbUrl === 'memory://' || process.env.VITEST === 'true';
+  const dataDir = isMemory ? null : path.resolve(/*turbopackIgnore: true*/ process.cwd(), dbUrl.replace(/^pglite:\/\//, ''));
+
+  const open = async (): Promise<DatabaseConnection> => {
+    if (dataDir) fs.mkdirSync(path.dirname(/*turbopackIgnore: true*/ dataDir), { recursive: true });
+    const client = dataDir ? new PGlite(dataDir) : new PGlite();
+    globalThis.__chalarPgliteClient = client;
+    const db = drizzlePglite(client, { schema });
+    try {
+      await applySchemaMigrations(db);
+    } catch (err) {
+      await client.close().catch(() => undefined);
+      throw err;
+    }
+    return { db, close: () => client.close() };
+  };
+
+  try {
+    return await open();
+  } catch (err) {
+    // PGlite is single-process: a killed dev server can leave a stale postmaster
+    // lock behind. Clear it and retry once rather than serving a dead database.
+    if (!(err instanceof DatabaseConfigError) && dataDir && fs.existsSync(dataDir)) {
+      for (const f of ['postmaster.pid', '.s.PGSQL.5432', '.s.PGSQL.5432.lock', '.s.PGSQL.5432.lock.out']) {
+        try {
+          fs.rmSync(path.join(/*turbopackIgnore: true*/ dataDir, f), { force: true });
+        } catch {
+          /* ignore */
+        }
+      }
+      const conn = await open();
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[chalar-db] Cleared a stale PGlite lock and reconnected (first attempt failed: ${msg.slice(0, 120)}).`);
+      return conn;
     }
     throw err;
   }
-
-  return db;
 }
 
+/**
+ * Shared database handle. First call connects, migrates, seeds and bootstraps
+ * the first admin. A failed initialisation is NOT cached — the next request
+ * retries — and surfaces as DatabaseUnavailableError with a classified cause.
+ */
 export async function getDb(): Promise<ChalarDatabase> {
   if (globalThis.__chalarDbInstance) {
     return globalThis.__chalarDbInstance;
   }
   if (!globalThis.__chalarDbInitPromise) {
     globalThis.__chalarDbInitPromise = (async () => {
-      const db = await createDatabaseConnection();
-      globalThis.__chalarDbInstance = db;
-      // Automatically seed initial enterprise data if database is empty
-      const { ensureSeeded } = await import('./seed-runner');
-      await ensureSeeded(db);
+      const conn = await createDatabaseConnection();
+      try {
+        await seedAtomically(conn.db);
+      } catch (err) {
+        await conn.close().catch(() => undefined);
+        throw err;
+      }
       // First-run Super Administrator for configuration-only (production) databases
       try {
         const { ensureInitialAdmin } = await import('./bootstrap-admin');
-        await ensureInitialAdmin(db);
+        // Locked so concurrent cold starts cannot race to create the same account.
+        await (conn.db as PgliteDatabase<typeof schema>).transaction(async (tx) => {
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(${SEED_LOCK_KEY})`);
+          await ensureInitialAdmin(tx as unknown as ChalarDatabase);
+        });
       } catch (err) {
         console.error('[chalar] Initial admin bootstrap failed', err);
       }
-      return db;
-    })();
+      globalThis.__chalarDbInstance = conn.db;
+      globalThis.__chalarDbClose = conn.close;
+      return conn.db;
+    })().catch((err: unknown) => {
+      globalThis.__chalarDbInitPromise = undefined;
+      const wrapped = err instanceof DatabaseUnavailableError ? err : new DatabaseUnavailableError(err);
+      console.error(`[chalar-db] ${wrapped.failure.code}: ${wrapped.failure.hint}`, err);
+      throw wrapped;
+    });
   }
   return globalThis.__chalarDbInitPromise;
+}
+
+/** Closes the shared connection (CLI scripts; lets the process exit). */
+export async function closeDb(): Promise<void> {
+  const close = globalThis.__chalarDbClose;
+  globalThis.__chalarDbInstance = undefined;
+  globalThis.__chalarDbInitPromise = undefined;
+  globalThis.__chalarDbClose = undefined;
+  if (close) await close();
 }
 
 export async function resetTestDb(): Promise<ChalarDatabase> {
@@ -162,9 +288,8 @@ export async function resetTestDb(): Promise<ChalarDatabase> {
   globalThis.__chalarPgliteClient = client;
   const db = drizzlePglite(client, { schema });
   await applySchemaMigrations(db);
+  await seedAtomically(db);
   globalThis.__chalarDbInstance = db;
   globalThis.__chalarDbInitPromise = Promise.resolve(db);
-  const { ensureSeeded } = await import('./seed-runner');
-  await ensureSeeded(db);
   return db;
 }

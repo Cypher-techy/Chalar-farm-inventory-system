@@ -8,6 +8,7 @@ import { AlertCircle, ArrowUpRight, Eye, EyeOff, Info, Loader2, ShieldCheck } fr
 import { LogoLockup, LogoMark } from '@/components/brand/logo';
 import { useScrollReveal } from '@/components/motion';
 import { safeNextPath } from '@/lib/safe-redirect';
+import type { DatabaseFailure } from '@/db/connection-config';
 
 const DEMO_ACCOUNTS = [
   ['superadmin@chalarfarms.demo', 'Super Administrator', 'Chalar@Admin2026!'],
@@ -25,9 +26,11 @@ export interface LoginFormProps {
   showDemoAccounts: boolean;
   /** True when the database has no staff accounts at all (fresh production install). */
   setupRequired: boolean;
+  /** Set when the server could not reach / initialise its database. */
+  databaseIssue?: DatabaseFailure | null;
 }
 
-export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormProps) {
+export function LoginForm({ next, showDemoAccounts, setupRequired, databaseIssue = null }: LoginFormProps) {
   const router = useRouter();
   const rootRef = useScrollReveal<HTMLDivElement>();
   const [email, setEmail] = useState('');
@@ -46,10 +49,10 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
       if (!res.ok) {
         setError(
-          data.error ??
+          (data.error && data.code ? `${data.error} (${data.code})` : data.error) ??
             (res.status === 429
               ? 'Too many sign-in attempts. Wait a minute and try again.'
               : 'Sign-in failed. Please try again.')
@@ -136,6 +139,22 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
             </p>
           </div>
 
+          {databaseIssue && (
+            <div
+              className="reveal mt-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3.5 text-sm text-red-900"
+              role="alert"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>
+                <span className="block font-semibold">
+                  Sign-in is unavailable — the server can&apos;t reach its database.
+                </span>
+                {databaseIssue.hint}{' '}
+                <span className="font-mono text-xs text-red-700">({databaseIssue.code})</span>
+              </span>
+            </div>
+          )}
+
           {setupRequired && (
             <div
               className="reveal mt-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm text-amber-900"
@@ -205,7 +224,7 @@ export function LoginForm({ next, showDemoAccounts, setupRequired }: LoginFormPr
 
             <button
               type="submit"
-              disabled={loading || setupRequired}
+              disabled={loading || setupRequired || Boolean(databaseIssue)}
               aria-busy={loading}
               className="btn-primary h-11 w-full rounded-lg text-[15px] disabled:cursor-not-allowed disabled:opacity-60"
             >

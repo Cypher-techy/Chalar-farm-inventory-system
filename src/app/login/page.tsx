@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
+import { databaseFailureOf, type DatabaseFailure } from '@/db/connection-config';
 import { getSessionUser, SESSION_COOKIE_NAME } from '@/lib/auth';
 import { isDemoSeedEnabled } from '@/lib/demo-mode';
 import { safeNextPath } from '@/lib/safe-redirect';
@@ -15,6 +16,8 @@ export const metadata: Metadata = {
 
 // Reads the session cookie and live account state on every request.
 export const dynamic = 'force-dynamic';
+// A cold start may migrate and seed the database before the page can render.
+export const maxDuration = 60;
 
 function firstRow<T>(result: unknown): T | undefined {
   const r = result as { rows?: T[] } | T[];
@@ -43,6 +46,7 @@ export default async function LoginPage({
 
   let showDemoAccounts = false;
   let setupRequired = false;
+  let databaseIssue: DatabaseFailure | null = null;
   try {
     const db = await getDb();
     const counts = firstRow<{ total: number; demo: number }>(
@@ -55,9 +59,16 @@ export default async function LoginPage({
     setupRequired = Number(counts?.total ?? 0) === 0;
     showDemoAccounts = isDemoSeedEnabled() && Number(counts?.demo ?? 0) > 0;
   } catch (err) {
-    // The form still renders; the sign-in API reports database problems itself.
-    console.error('[login] could not read account state', err);
+    databaseIssue = databaseFailureOf(err) ?? { code: 'DB_UNKNOWN', hint: 'See the server logs for details.' };
+    console.error(`[login] could not read account state (${databaseIssue.code})`, err);
   }
 
-  return <LoginForm next={next} showDemoAccounts={showDemoAccounts} setupRequired={setupRequired} />;
+  return (
+    <LoginForm
+      next={next}
+      showDemoAccounts={showDemoAccounts}
+      setupRequired={setupRequired}
+      databaseIssue={databaseIssue}
+    />
+  );
 }
