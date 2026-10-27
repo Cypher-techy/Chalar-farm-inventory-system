@@ -1,0 +1,1 @@
+ALTER TABLE "vehicles" ADD COLUMN "reefer_temp_max_c" numeric(5, 2) DEFAULT '4.00' NOT NULL;
