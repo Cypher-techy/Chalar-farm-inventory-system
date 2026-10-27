@@ -14,6 +14,7 @@ import {
   isPostgresUrl,
   isServerlessHost,
   resolveDatabaseUrl,
+  describeMissingDatabaseUrl,
 } from './connection-config';
 
 export { DatabaseUnavailableError, databaseFailureOf } from './connection-config';
@@ -182,16 +183,13 @@ async function createDatabaseConnection(): Promise<DatabaseConnection> {
     return { db, close: () => pool.end() };
   }
 
+  if (isServerlessHost()) {
+    // Explains exactly which variables this deployment can see and what is wrong with them.
+    throw new DatabaseConfigError(describeMissingDatabaseUrl());
+  }
   if (configured && !configured.startsWith('pglite://') && configured !== 'memory://') {
     throw new DatabaseConfigError(
       'DATABASE_URL must start with postgresql:// (or pglite:// for local development).'
-    );
-  }
-  if (isServerlessHost()) {
-    throw new DatabaseConfigError(
-      configured
-        ? 'DATABASE_URL points to the embedded database, which cannot run on Vercel (read-only, ephemeral filesystem). Set it to your PostgreSQL / Supabase connection string.'
-        : 'No PostgreSQL connection string found (checked DATABASE_URL, POSTGRES_URL, POSTGRES_PRISMA_URL, POSTGRES_URL_NON_POOLING). On Vercel connect the Supabase integration or set DATABASE_URL — the embedded development database cannot run there.'
     );
   }
 

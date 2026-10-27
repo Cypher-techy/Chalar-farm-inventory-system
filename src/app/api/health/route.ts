@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { databaseFailureOf, resolveDatabaseUrl } from '@/db/connection-config';
+import { databaseFailureOf, isServerlessHost, resolveDatabaseUrl } from '@/db/connection-config';
 import { isDemoSeedEnabled } from '@/lib/demo-mode';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function GET() {
   // Variable NAMES only — never values.
   const { source, ignoredDatabaseUrl } = resolveDatabaseUrl();
   const config = {
-    databaseUrlFrom: source ?? 'embedded (no PostgreSQL URL set)',
+    databaseUrlFrom: source ?? (isServerlessHost() ? 'none' : 'embedded (no PostgreSQL URL set)'),
     ...(ignoredDatabaseUrl ? { warning: 'A non-PostgreSQL DATABASE_URL is set and was ignored; remove it from Vercel.' } : {}),
     demoData: isDemoSeedEnabled(),
   };

@@ -56,7 +56,18 @@ loaded when `ENABLE_DEMO_SEED=true`, and **never** on a Vercel Production deploy
 published `*.demo` accounts cannot sign in even if they exist in the database.
 Then continue at step 2 below, skipping `DATABASE_URL`.
 
-**Option B — set `DATABASE_URL` yourself:**
+> **`supabase link` (Supabase CLI) does not configure Vercel.** It only links your local machine to the
+> project (`supabase/config.toml`). The deployment still needs `DATABASE_URL` (Option B) or the Vercel
+> integration (Option A). Variables apply only to the environments ticked for them (Production /
+> Preview / Development) and only to deployments made **after** they were saved.
+>
+> If a deployment has no usable connection string, the sign-in page and `/api/health` say exactly why,
+> listing variable **names** only (never values): nothing visible, a `pglite://` value, the Supabase
+> project URL (`https://…supabase.co`) pasted instead of the database URI, and so on. Quotes copied from
+> a `.env` file, a leading `DATABASE_URL=`, and integration variables with a custom prefix
+> (e.g. `STORAGE_POSTGRES_URL`) are handled automatically.
+
+**Option B — set `DATABASE_URL` yourself (most direct):**
 
 1. **Supabase → Connect → Transaction pooler** (port **6543**). Copy the URI:
    `postgresql://postgres.<project-ref>:[YOUR-PASSWORD]@aws-1-<region>.pooler.supabase.com:6543/postgres`

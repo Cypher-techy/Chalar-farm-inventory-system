@@ -36,38 +36,108 @@ export function isPostgresUrl(url: string | undefined): boolean {
 /**
  * Variables checked for a PostgreSQL connection string, in priority order.
  * The Vercel ↔ Supabase integration sets POSTGRES_URL (transaction pooler),
- * POSTGRES_PRISMA_URL and POSTGRES_URL_NON_POOLING — never DATABASE_URL.
+ * POSTGRES_PRISMA_URL and POSTGRES_URL_NON_POOLING — never DATABASE_URL — and
+ * Vercel lets the integration add a custom prefix (e.g. STORAGE_POSTGRES_URL).
  */
 export const DATABASE_URL_VARIABLES = ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_PRISMA_URL', 'POSTGRES_URL_NON_POOLING'] as const;
 export type DatabaseUrlVariable = (typeof DATABASE_URL_VARIABLES)[number];
+const EXTRA_URL_VARIABLES = ['SUPABASE_DB_URL'];
+
+type Env = Record<string, string | undefined>;
 
 export interface ResolvedDatabaseUrl {
   /** The connection string to use, or undefined → embedded development database. */
   url: string | undefined;
   /** Name of the variable it came from (safe to display; never the value). */
-  source: DatabaseUrlVariable | null;
+  source: string | null;
   /** Set when a non-PostgreSQL DATABASE_URL was overridden on a serverless host. */
   ignoredDatabaseUrl: boolean;
 }
 
-export function resolveDatabaseUrl(env: Record<string, string | undefined> = process.env): ResolvedDatabaseUrl {
-  const explicit = env.DATABASE_URL?.trim() || undefined;
+/**
+ * Undo common copy/paste damage in a dashboard-entered value: surrounding
+ * whitespace, quotes copied from a .env file, a leading `NAME=` / `export NAME=`
+ * or a trailing semicolon. Never changes a well-formed URL.
+ */
+export function cleanConnectionString(raw: string | undefined): string | undefined {
+  if (raw == null) return undefined;
+  let v = raw.trim();
+  v = v.replace(/^(export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*/, '');
+  v = v.replace(/;\s*$/, '').trim();
+  for (let i = 0; i < 2; i++) {
+    const m = v.match(/^(["'`])([\s\S]*)\1$/);
+    if (m) v = m[2].trim();
+  }
+  return v || undefined;
+}
+
+/** Candidate variable names present in env, in priority order. */
+function candidateNames(env: Env): string[] {
+  const keys = Object.keys(env);
+  const exact = DATABASE_URL_VARIABLES.filter((n) => n in env);
+  const prefixed = DATABASE_URL_VARIABLES.flatMap((suffix) =>
+    keys.filter((k) => k !== suffix && k.endsWith(`_${suffix}`) && !k.startsWith('NEXT_PUBLIC_')).sort()
+  );
+  const extra = EXTRA_URL_VARIABLES.filter((n) => n in env);
+  return [...new Set([...exact, ...prefixed, ...extra])];
+}
+
+export function resolveDatabaseUrl(env: Env = process.env): ResolvedDatabaseUrl {
+  const explicit = cleanConnectionString(env.DATABASE_URL);
   if (explicit && isPostgresUrl(explicit)) return { url: explicit, source: 'DATABASE_URL', ignoredDatabaseUrl: false };
 
-  const fromIntegration = DATABASE_URL_VARIABLES.slice(1)
-    .map((name) => ({ name, value: env[name]?.trim() }))
+  const fallback = candidateNames(env)
+    .filter((name) => name !== 'DATABASE_URL')
+    .map((name) => ({ name, value: cleanConnectionString(env[name]) }))
     .find((v) => isPostgresUrl(v.value));
 
   if (explicit) {
     // e.g. DATABASE_URL="pglite://…" copied from .env.example into Vercel: it can never
-    // work on a serverless host, so prefer the integration's PostgreSQL URL there.
-    if (fromIntegration && isServerlessHost(env)) {
-      return { url: fromIntegration.value, source: fromIntegration.name, ignoredDatabaseUrl: true };
+    // work on a serverless host, so prefer a PostgreSQL URL from another variable there.
+    if (fallback && isServerlessHost(env)) {
+      return { url: fallback.value, source: fallback.name, ignoredDatabaseUrl: true };
     }
     return { url: explicit, source: 'DATABASE_URL', ignoredDatabaseUrl: false };
   }
-  if (fromIntegration) return { url: fromIntegration.value, source: fromIntegration.name, ignoredDatabaseUrl: false };
+  if (fallback) return { url: fallback.value, source: fallback.name, ignoredDatabaseUrl: false };
   return { url: undefined, source: null, ignoredDatabaseUrl: false };
+}
+
+/** Why a variable's value is not a usable PostgreSQL URL — describes the shape only, never the value. */
+function describeBadValue(value: string | undefined): string {
+  if (!value) return 'is empty';
+  if (/^https?:\/\/[^/]*supabase\.(co|com|in)/i.test(value)) {
+    return 'holds the Supabase project/API URL (https://…supabase.co), not the database connection string';
+  }
+  if (/^pglite:|^memory:/i.test(value)) return 'points to the embedded local-development database, which cannot run on Vercel';
+  const scheme = value.match(/^([a-z][a-z0-9+.-]{0,15}):/i)?.[1];
+  if (scheme) return `starts with "${scheme}:" instead of "postgresql://"`;
+  return 'is not a URL (it should start with "postgresql://")';
+}
+
+/**
+ * Human-readable explanation for "no usable PostgreSQL connection string" on a
+ * serverless host. Lists variable NAMES only (never values) so it is safe to
+ * show on the sign-in page and /api/health.
+ */
+export function describeMissingDatabaseUrl(env: Env = process.env): string {
+  const where =
+    env.VERCEL_ENV === 'production' ? 'This Production deployment' :
+    env.VERCEL_ENV === 'preview' ? 'This Preview deployment' : 'This deployment';
+  const problems = candidateNames(env).map((n) => `${n} ${describeBadValue(cleanConnectionString(env[n]))}`);
+  const related = Object.keys(env)
+    .filter((k) => /POSTGRES|DATABASE|SUPABASE|^PG/i.test(k) && !candidateNames(env).includes(k))
+    .filter((k) => !/^(DATABASE_SSL|DATABASE_CA_CERT|DATABASE_POOL_MAX)$/.test(k))
+    .sort();
+
+  const parts = [`${where} has no usable PostgreSQL connection string.`];
+  if (problems.length) parts.push(`${problems.join('; ')}.`);
+  else parts.push('Neither DATABASE_URL nor POSTGRES_URL is visible to it (Vercel variables apply only to the environments ticked for them, and only after a redeploy).');
+  if (related.length) parts.push(`Other database-related variables found (not connection strings): ${related.slice(0, 8).join(', ')}${related.length > 8 ? ', …' : ''}.`);
+  parts.push(
+    'Fix: Supabase → Connect → Transaction pooler → copy the URI (postgresql://…:6543/postgres), replace [YOUR-PASSWORD] with the database password, save it as DATABASE_URL in Vercel → Settings → Environment Variables with Production ticked, then Redeploy.'
+  );
+  return parts.join(' ');
 }
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
@@ -238,6 +308,7 @@ export function classifyDatabaseError(err: unknown): DatabaseFailure | null {
     else if (code === '53300' || /too many (clients|connections)|MaxClientsInSessionMode/i.test(msg)) c = 'DB_TOO_MANY_CONNECTIONS';
     else if (code === 'EROFS' || code === 'EACCES' || code === 'EPERM') c = 'DB_FILESYSTEM';
     else if (code === '42P01' || /migrations? (folder|directory)/i.test(msg)) c = 'DB_SCHEMA';
+    if (c === 'DB_CONFIG' && e instanceof DatabaseConfigError && msg) return { code: c, hint: msg };
     if (c) return { code: c, hint: HINTS[c] };
   }
   return null;
