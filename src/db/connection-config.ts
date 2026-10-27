@@ -15,6 +15,15 @@ export class DatabaseConfigError extends Error {
   }
 }
 
+/** Deployed schema assets (drizzle/migrations) are missing or unusable. */
+export class DatabaseSchemaError extends Error {
+  readonly code = 'DB_SCHEMA';
+  constructor(message: string) {
+    super(message);
+    this.name = 'DatabaseSchemaError';
+  }
+}
+
 /** True on hosts whose filesystem is read-only/ephemeral (embedded DB impossible). */
 export function isServerlessHost(env: Record<string, string | undefined> = process.env): boolean {
   return Boolean(env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME || env.NETLIFY);
@@ -84,7 +93,21 @@ export function buildPgPoolConfig(rawUrl: string, env: Record<string, string | u
     throw new DatabaseConfigError('DATABASE_URL has no host name.');
   }
 
-  const fromUrl = normaliseSslMode(url.searchParams.get('sslmode') ?? url.searchParams.get('ssl'));
+  const rawUrlMode = url.searchParams.get('sslmode') ?? url.searchParams.get('ssl');
+  const fromUrl = normaliseSslMode(rawUrlMode);
+  // An explicit but unrecognised mode (e.g. a typo of verify-full) must never
+  // silently fall back to encrypted-but-unverified connections.
+  if (rawUrlMode !== null && rawUrlMode.trim() !== '' && !fromUrl) {
+    throw new DatabaseConfigError(
+      `Unsupported sslmode "${rawUrlMode}" in DATABASE_URL. Use disable, require, verify-ca or verify-full.`
+    );
+  }
+  const rawEnvMode = env.DATABASE_SSL?.trim();
+  if (rawEnvMode && !normaliseSslMode(rawEnvMode)) {
+    throw new DatabaseConfigError(
+      `Unsupported DATABASE_SSL value "${rawEnvMode}". Use disable, require or verify-full.`
+    );
+  }
   for (const p of SSL_PARAMS) url.searchParams.delete(p);
 
   const ca = env.DATABASE_CA_CERT?.trim() ? env.DATABASE_CA_CERT.replace(/\\n/g, '\n') : undefined;
@@ -166,7 +189,8 @@ export function classifyDatabaseError(err: unknown): DatabaseFailure | null {
     const code = typeof e.code === 'string' ? e.code : '';
     const msg = typeof e.message === 'string' ? e.message : '';
     let c: DatabaseFailureCode | null = null;
-    if (e instanceof DatabaseConfigError || code === 'DB_CONFIG') c = 'DB_CONFIG';
+    if (e instanceof DatabaseSchemaError || code === 'DB_SCHEMA') c = 'DB_SCHEMA';
+    else if (e instanceof DatabaseConfigError || code === 'DB_CONFIG') c = 'DB_CONFIG';
     else if (TLS_CODES.has(code) || /certificate/i.test(msg)) c = 'DB_TLS';
     else if (/does not support SSL|no encryption|SSL off|SSL\/TLS required/i.test(msg)) c = 'DB_SSL_REQUIRED';
     else if (code === '28P01' || code === '28000' || /password authentication failed|Tenant or user not found/i.test(msg)) c = 'DB_AUTH';

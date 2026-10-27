@@ -9,6 +9,7 @@ import { sql } from 'drizzle-orm';
 import {
   buildPgPoolConfig,
   DatabaseConfigError,
+  DatabaseSchemaError,
   DatabaseUnavailableError,
   isPostgresUrl,
   isServerlessHost,
@@ -46,7 +47,7 @@ interface MigrationFile {
 function readMigrationFiles(): MigrationFile[] {
   const migrationsDir = path.join(process.cwd(), 'drizzle', 'migrations');
   if (!fs.existsSync(migrationsDir)) {
-    throw new DatabaseConfigError(
+    throw new DatabaseSchemaError(
       `Migrations folder not found at ${migrationsDir}. Make sure drizzle/migrations is deployed with the app.`
     );
   }
@@ -95,7 +96,7 @@ function isAlreadyExistsError(err: unknown): boolean {
 export async function applySchemaMigrations(db: ChalarDatabase): Promise<void> {
   const files = readMigrationFiles();
   if (files.length === 0) {
-    throw new DatabaseConfigError('No .sql files found in drizzle/migrations.');
+    throw new DatabaseSchemaError('No .sql files found in drizzle/migrations.');
   }
 
   await (db as PgliteDatabase<typeof schema>).transaction(async (tx) => {
@@ -213,7 +214,7 @@ async function createDatabaseConnection(): Promise<DatabaseConnection> {
   } catch (err) {
     // PGlite is single-process: a killed dev server can leave a stale postmaster
     // lock behind. Clear it and retry once rather than serving a dead database.
-    if (!(err instanceof DatabaseConfigError) && dataDir && fs.existsSync(dataDir)) {
+    if (!(err instanceof DatabaseConfigError) && !(err instanceof DatabaseSchemaError) && dataDir && fs.existsSync(dataDir)) {
       for (const f of ['postmaster.pid', '.s.PGSQL.5432', '.s.PGSQL.5432.lock', '.s.PGSQL.5432.lock.out']) {
         try {
           fs.rmSync(path.join(/*turbopackIgnore: true*/ dataDir, f), { force: true });

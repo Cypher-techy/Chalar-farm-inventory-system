@@ -8,6 +8,7 @@ import {
   buildPgPoolConfig,
   classifyDatabaseError,
   DatabaseConfigError,
+  DatabaseSchemaError,
   DatabaseUnavailableError,
 } from '@/db/connection-config';
 
@@ -40,6 +41,11 @@ describe('PostgreSQL connection config', () => {
     expect(buildPgPoolConfig('postgresql://u:p@localhost:5432/db', {}).ssl).toBe(false);
   });
 
+  it('rejects unrecognised SSL modes instead of downgrading verification', () => {
+    expect(() => buildPgPoolConfig(`${SUPABASE}?sslmode=verify_full`, {})).toThrow(DatabaseConfigError);
+    expect(() => buildPgPoolConfig(SUPABASE, { DATABASE_SSL: 'verfy-full' })).toThrow(DatabaseConfigError);
+  });
+
   it('keeps serverless pools small and allows an override', () => {
     expect(buildPgPoolConfig(SUPABASE, { VERCEL: '1' }).max).toBe(3);
     expect(buildPgPoolConfig(SUPABASE, {}).max).toBe(10);
@@ -67,6 +73,7 @@ describe('Database failure classification', () => {
       'DB_TOO_MANY_CONNECTIONS'
     );
     expect(classifyDatabaseError(pgErr('EROFS'))?.code).toBe('DB_FILESYSTEM');
+    expect(classifyDatabaseError(new DatabaseSchemaError('Migrations folder not found'))?.code).toBe('DB_SCHEMA');
     const wrapped = new Error('Failed query', { cause: pgErr('28P01') });
     expect(classifyDatabaseError(wrapped)?.code).toBe('DB_AUTH');
     expect(classifyDatabaseError(new Error('unrelated'))).toBeNull();
