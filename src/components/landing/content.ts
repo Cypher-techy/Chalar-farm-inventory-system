@@ -27,7 +27,11 @@ export const HERO_STATS = [
   { value: 9, suffix: '', label: 'Years of operation' },
 ] as const;
 
-/** Floating produce chips in the hero — labelled with published weekly volumes. */
+/**
+ * Floating produce chips orbiting the hero logo — labelled with published weekly
+ * volumes. `x`/`y` are the resting position (% of the stage), `drift` is how far
+ * (in px) the chip flies outward as the hero scrolls away.
+ */
 export const HERO_CHIPS = [
   {
     name: 'Sweet Basil',
@@ -35,8 +39,9 @@ export const HERO_CHIPS = [
     unit: 'per week, average',
     image: '/images/chalar/greenhouse-sweet-basil.jpg',
     alt: 'Sweet basil growing in a Chalar Farms greenhouse',
-    depth: 0.06,
-    className: 'lg:-mt-6',
+    x: 2,
+    y: 16,
+    drift: [-140, -60],
   },
   {
     name: 'Rosemary',
@@ -44,19 +49,34 @@ export const HERO_CHIPS = [
     unit: 'per week capacity',
     image: '/images/chalar/drip-irrigated-rosemary.jpg',
     alt: 'Drip-irrigated rosemary at Chalar Farms',
-    depth: 0.14,
-    className: 'lg:mt-10 lg:ml-16',
+    x: 64,
+    y: 6,
+    drift: [150, -90],
   },
   {
-    name: 'Double-cut Chives',
+    name: 'Lemongrass',
     figure: '1 t',
-    unit: 'per week, via sister farm',
+    unit: 'per week',
+    image: '/images/chalar/farm-aerial-taveta.jpg',
+    alt: 'Aerial view of Chalar Farms production blocks near Taveta',
+    x: 70,
+    y: 70,
+    drift: [170, 110],
+  },
+  {
+    name: 'Chives',
+    figure: '1 t',
+    unit: 'double-cut, per week',
     image: '/images/chalar/fresh-herb-bundle.jpg',
     alt: 'Freshly cut herb bundles from the Chalar Farms packhouse',
-    depth: 0.1,
-    className: 'lg:-mt-4 lg:ml-6',
+    x: 0,
+    y: 74,
+    drift: [-160, 120],
   },
 ] as const;
+
+/** Words cycled in the hero kicker (eatnaked.co's "Bold / Fresh / Tailored" device). */
+export const ROTATING_WORDS = ['Fresh', 'Traceable', 'Certified', 'Year-round'] as const;
 
 export const HERBS = [
   {
@@ -182,19 +202,6 @@ export const JOURNEY = [
   },
 ] as const;
 
-export const CUSTOMERS = [
-  { name: 'Vitacress', market: 'United Kingdom' },
-  { name: 'Fresh Choice', market: 'United Kingdom' },
-  { name: 'VanVugt', market: 'Netherlands' },
-  { name: 'Fresh Handling', market: 'Netherlands' },
-  { name: 'Gaia', market: 'Netherlands' },
-  { name: 'Herrmann Krauter', market: 'Germany' },
-  { name: 'Baur', market: 'Switzerland' },
-  { name: 'Magnani', market: 'Italy' },
-  { name: 'Afrex', market: 'South Africa' },
-  { name: 'Lauren International', market: 'Middle East' },
-] as const;
-
 export const COLD_CHAIN_SPECS = [
   {
     label: 'Cold chain',
@@ -217,4 +224,115 @@ export const COLD_CHAIN_SPECS = [
     detail: 'Plus 1–3 kg liners, sleeves & MAP bags',
     second: null,
   },
+] as const;
+
+/** Scroll-highlighted manifesto, split into words at render time. */
+export const STATEMENT =
+  'From the fields of Taveta to herb buyers across the United Kingdom, Europe and the Middle East — hand-picked, packed to specification and traced batch by batch, every single week of the year.';
+
+/** Sticky stacking cards: the three things Chalar does. */
+export const PILLARS = [
+  {
+    index: '01',
+    kicker: 'Grow',
+    title: 'Grown in Taveta.',
+    tagline: 'Rooted at Lake Chala.',
+    body: 'Greenhouse bays and open-field blocks under drip irrigation at Madulu A Village, Chala Ward — planned as crop cycles, scouted, and logged input by input.',
+    facts: ['Greenhouse & open field', 'Drip irrigation', 'GLOBALG.A.P. certified'],
+    image: '/images/chalar/drip-irrigated-rosemary.jpg',
+    alt: 'Drip-irrigated rosemary rows at Chalar Farms',
+    href: '#journey',
+    cta: 'Follow the chain',
+    tone: 'forest',
+  },
+  {
+    index: '02',
+    kicker: 'Pack',
+    title: 'Packed to spec.',
+    tagline: 'Bunch, liner, sleeve or MAP.',
+    body: 'Harvest batches are weighed in, graded and packed in the Taveta packhouse to each customer’s specification, with mass balance reconciled for every batch.',
+    facts: ['30 · 75 · 100 g bunches', '1–3 kg liners', 'Sleeves & MAP bags'],
+    image: '/images/chalar/packhouse-herb-crates.jpg',
+    alt: 'Freshly harvested herbs in crates at the packhouse',
+    href: '#herbs',
+    cta: 'See the herbs',
+    tone: 'clay',
+  },
+  {
+    index: '03',
+    kicker: 'Export',
+    title: 'Flown fresh.',
+    tagline: 'Cold from field to flight.',
+    body: 'Refrigerated trucks run from Taveta to JKIA with phytosanitary and EUR.1 documents bound to the shipment, so every carton arrives inside its cold-chain window.',
+    facts: ['2–4 °C cold chain', 'Basil held at 8–10 °C', '~2-week shelf life'],
+    image: '/images/chalar/chalar-cold-chain-truck.jpg',
+    alt: 'Chalar Farms branded refrigerated truck at the packhouse',
+    href: '#markets',
+    cta: 'Where we ship',
+    tone: 'rust',
+  },
+] as const;
+
+/**
+ * "Whatever your market" looping carousel — markets and buyers exactly as
+ * published by Chalar Farms. Specs are the company's published cold-chain
+ * and packaging figures, which apply to every market.
+ */
+export const MARKETS = [
+  {
+    region: 'United Kingdom',
+    code: 'UK',
+    buyers: ['Vitacress', 'Fresh Choice'],
+    images: ['/images/chalar/greenhouse-sweet-basil.jpg', '/images/chalar/fresh-herb-bundle.jpg'],
+  },
+  {
+    region: 'Netherlands',
+    code: 'NL',
+    buyers: ['VanVugt', 'Fresh Handling', 'Gaia'],
+    images: ['/images/chalar/drip-irrigated-rosemary.jpg', '/images/chalar/packhouse-herb-crates.jpg'],
+  },
+  {
+    region: 'Germany & Switzerland',
+    code: 'DE · CH',
+    buyers: ['Herrmann Krauter', 'Baur'],
+    images: ['/images/chalar/culinary-herb-garden.jpg', '/images/chalar/rosemary-blossom.jpg'],
+  },
+  {
+    region: 'Italy',
+    code: 'IT',
+    buyers: ['Magnani'],
+    images: ['/images/chalar/farm-fields-greenhouses.jpg', '/images/chalar/greenhouse-sweet-basil.jpg'],
+  },
+  {
+    region: 'South Africa',
+    code: 'ZA',
+    buyers: ['Afrex'],
+    images: ['/images/chalar/farm-aerial-taveta.jpg', '/images/chalar/fresh-herb-bundle.jpg'],
+  },
+  {
+    region: 'Middle East',
+    code: 'ME',
+    buyers: ['Lauren International'],
+    images: ['/images/chalar/chalar-cold-chain-truck.jpg', '/images/chalar/drip-irrigated-rosemary.jpg'],
+  },
+] as const;
+
+/** Draggable physics tags in the closing call-to-action. */
+export const PHYSICS_TAGS = [
+  'Fresh',
+  'Hand-picked',
+  'Traceable',
+  'GLOBALG.A.P.',
+  'GRASP',
+  'SMETA',
+  'LEAF Marque',
+  'Taveta',
+  'Cold chain',
+  'Year-round',
+  '12 t+ weekly',
+  'Basil',
+  'Rosemary',
+  'Thyme',
+  'Chives',
+  'Est. 2015',
 ] as const;

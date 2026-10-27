@@ -14,6 +14,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import type { NavGroup } from '@/lib/portal-nav';
+import { LogoMark } from '@/components/brand/logo';
 
 interface TopbarUser {
   id: number;
@@ -65,10 +66,8 @@ export function Sidebar({
         ].join(' ')}
       >
         <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
-          <Link href="/portal" className="flex items-center gap-2 overflow-hidden">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-chalar-600 text-white">
-              <MessagesSquare className="h-4 w-4" aria-hidden />
-            </span>
+          <Link href="/portal" className="flex items-center gap-2 overflow-hidden" aria-label="Chalar Farms portal home">
+            <LogoMark variant="compact" size={34} decorative />
             {!collapsed && (
               <span className="whitespace-nowrap font-serif text-sm font-bold text-white">
                 Chalar Farms

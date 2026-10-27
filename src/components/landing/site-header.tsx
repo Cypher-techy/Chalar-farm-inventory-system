@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Leaf, Menu, X, ArrowUpRight } from 'lucide-react';
+import { Menu, X, ArrowUpRight } from 'lucide-react';
+import { LogoLockup } from '@/components/brand/logo';
 import { useActiveSection, useScrollProgress } from '@/components/motion';
 import { COMPANY } from './content';
 
 export const NAV_LINKS = [
   { href: '#about', id: 'about', label: 'About' },
-  { href: '#journey', id: 'journey', label: 'Farm to flight' },
   { href: '#herbs', id: 'herbs', label: 'Our herbs' },
+  { href: '#journey', id: 'journey', label: 'Farm to flight' },
+  { href: '#markets', id: 'markets', label: 'Markets' },
   { href: '#quality', id: 'quality', label: 'Quality' },
-  { href: '#customers', id: 'customers', label: 'Customers' },
   { href: '#contact', id: 'contact', label: 'Contact' },
 ] as const;
 
@@ -35,8 +36,8 @@ export function SiteHeader() {
       className={[
         'fixed inset-x-0 top-0 z-50 transition-all duration-500 ease-editorial',
         scrolled || open
-          ? 'border-b border-white/10 bg-chalar-950/88 backdrop-blur-xl'
-          : 'border-b border-transparent bg-gradient-to-b from-chalar-950/70 to-transparent',
+          ? 'border-b border-white/10 bg-[#070d09]/85 backdrop-blur-xl'
+          : 'border-b border-transparent bg-gradient-to-b from-[#070d09]/70 to-transparent',
       ].join(' ')}
     >
       <nav
@@ -46,16 +47,8 @@ export function SiteHeader() {
         ].join(' ')}
         aria-label="Primary"
       >
-        <Link href="/" className="group flex items-center gap-3" onClick={() => setOpen(false)}>
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-chalar-600 text-white shadow-sm transition-transform duration-500 ease-editorial group-hover:-rotate-6">
-            <Leaf className="h-5 w-5" aria-hidden />
-          </span>
-          <span className="leading-tight">
-            <span className="block font-serif text-lg font-semibold tracking-tight text-white">
-              Chalar Farms
-            </span>
-            <span className="kicker block text-[9px] text-clay-300">{COMPANY.tagline}</span>
-          </span>
+        <Link href="/" className="group flex items-center" onClick={() => setOpen(false)} aria-label="Chalar Farms home">
+          <LogoLockup tone="dark" size={scrolled ? 38 : 44} subtitle={COMPANY.tagline} priority />
         </Link>
 
         <div className="hidden items-center gap-8 lg:flex">

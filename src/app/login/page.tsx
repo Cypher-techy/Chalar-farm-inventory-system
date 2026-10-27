@@ -4,7 +4,8 @@ import { useState, FormEvent, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Leaf, AlertCircle, ArrowUpRight, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
+import { LogoLockup, LogoMark } from '@/components/brand/logo';
 import { useScrollReveal } from '@/components/motion';
 
 const DEMO_ACCOUNTS = [
@@ -52,29 +53,28 @@ function LoginInner() {
   }
 
   return (
-    <div ref={rootRef} className="flex min-h-screen bg-stone-50">
+    <div ref={rootRef} className="flex min-h-screen bg-cream-100">
       {/* ============ Visual panel ============ */}
-      <div className="grain relative hidden w-1/2 overflow-hidden bg-chalar-950 lg:block">
+      <div className="grain relative hidden w-1/2 overflow-hidden bg-[#070d09] lg:block">
         <Image
           src="/images/chalar/greenhouse-sweet-basil.jpg"
           alt="Rows of sweet basil growing under greenhouse cover at Chalar Farms"
           fill
           priority
           sizes="50vw"
-          className="ken-burns object-cover opacity-80"
+          className="ken-burns object-cover opacity-40"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-chalar-950 via-chalar-950/65 to-chalar-950/25" />
 
         <div className="absolute inset-x-0 top-0 p-10">
-          <Link href="/" className="group inline-flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-chalar-600 text-white transition-transform duration-500 ease-editorial group-hover:-rotate-6">
-              <Leaf className="h-5 w-5" aria-hidden />
-            </span>
-            <span className="leading-tight">
-              <span className="block font-serif text-lg font-semibold text-white">Chalar Farms</span>
-              <span className="kicker block text-[9px] text-clay-300">ERP &amp; Inventory Portal</span>
-            </span>
+          <Link href="/" className="group inline-flex items-center" aria-label="Chalar Farms home">
+            <LogoLockup tone="dark" size={44} subtitle="ERP & Inventory Portal" priority />
           </Link>
+        </div>
+
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center pb-40" aria-hidden>
+          <span className="glow-breathe absolute h-64 w-64 rounded-full bg-leaf-400/25 blur-[70px]" />
+          <LogoMark variant="glow" size={340} decorative className="float-soft-slow relative opacity-95" />
         </div>
 
         <div className="absolute inset-x-0 bottom-0 p-10">
@@ -106,21 +106,13 @@ function LoginInner() {
       {/* ============ Form panel ============ */}
       <div className="flex w-full items-center justify-center px-4 py-12 lg:w-1/2">
         <div className="w-full max-w-md">
-          <Link href="/" className="mb-10 flex items-center gap-2.5 lg:hidden">
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-chalar-700 text-white">
-              <Leaf className="h-5 w-5" aria-hidden />
-            </span>
-            <span>
-              <span className="block font-serif text-xl font-semibold tracking-tight text-stone-900">
-                Chalar Farms
-              </span>
-              <span className="kicker block text-[9px] text-chalar-600">Staff Portal</span>
-            </span>
+          <Link href="/" className="group mb-10 flex items-center lg:hidden" aria-label="Chalar Farms home">
+            <LogoLockup tone="light" size={44} subtitle="Staff Portal" />
           </Link>
 
           <div className="reveal">
-            <p className="kicker flex items-center gap-2.5 text-clay-600">
-              <span className="h-px w-8 bg-clay-400/70" aria-hidden />
+            <p className="kicker flex items-center gap-2.5 text-rust-500">
+              <span className="h-px w-8 bg-rust-400/60" aria-hidden />
               Staff portal
             </p>
             <h2 className="display display-md mt-4 text-stone-900">Sign in</h2>
