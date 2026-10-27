@@ -30,6 +30,9 @@ Required in production:
 | `AUTH_MAX_LOGIN_ATTEMPTS` | `5` | |
 | `AUTH_LOCKOUT_MINUTES` | `15` | |
 | `ENABLE_DEMO_SEED` | `false` | **Must be false in production** |
+| `INITIAL_ADMIN_EMAIL` | `it.admin@chalarfarms.com` | First Super Administrator — used only while no active Super Admin exists |
+| `INITIAL_ADMIN_PASSWORD` | strong, unique | 12+ chars, three character classes. **Remove after first sign-in** |
+| `INITIAL_ADMIN_NAME` | `System Administrator` | Optional display name |
 | `PRIVATE_STORAGE_PATH` | `/var/lib/chalar/documents` | Outside the web root, backed up |
 | `MAX_UPLOAD_SIZE_BYTES` | `10485760` | |
 | `NEXT_PUBLIC_APP_URL` | `https://erp.chalarfarms.com` | Used for links in notifications |
@@ -52,7 +55,15 @@ npm run db:migrate
 #    which seeds configuration without demo operational records.
 ENABLE_DEMO_SEED=false npm run db:seed
 
-# 4. Verify
+# 4. Create the first Super Administrator: set INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD,
+#    then start (or restart) the app. On first database connection, if no active Super Admin
+#    exists, one is created and a BOOTSTRAP_ADMIN_CREATED security event is recorded.
+#    It never modifies an existing account. Sign in, rotate the password under
+#    Super Admin → Users, then remove INITIAL_ADMIN_PASSWORD from the environment.
+#    Without these variables a production database has NO accounts and the login page
+#    shows a "No staff accounts exist yet" notice.
+
+# 5. Verify
 npx tsx scripts/check-db.ts
 npx tsx scripts/check-integrity.ts
 ```
@@ -111,6 +122,7 @@ you need it), mount `PRIVATE_STORAGE_PATH` as a persistent volume, and run as a 
 ## 5. Deployment checklist
 
 - [ ] `ENABLE_DEMO_SEED=false` and no demo accounts exist (`SELECT count(*) FROM users WHERE email LIKE '%.demo';` → 0)
+- [ ] First Super Administrator signed in, password rotated, and `INITIAL_ADMIN_PASSWORD` removed from the environment
 - [ ] All seeded/initial passwords rotated; MFA plan documented (see limitation in `FEATURE-REPORT.md`)
 - [ ] `DATABASE_URL` uses TLS (`sslmode=require`) and a least-privilege role
 - [ ] `SESSION_SECRET` is unique per environment and stored in a secrets manager

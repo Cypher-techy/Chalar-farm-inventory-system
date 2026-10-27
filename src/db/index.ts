@@ -142,6 +142,13 @@ export async function getDb(): Promise<ChalarDatabase> {
       // Automatically seed initial enterprise data if database is empty
       const { ensureSeeded } = await import('./seed-runner');
       await ensureSeeded(db);
+      // First-run Super Administrator for configuration-only (production) databases
+      try {
+        const { ensureInitialAdmin } = await import('./bootstrap-admin');
+        await ensureInitialAdmin(db);
+      } catch (err) {
+        console.error('[chalar] Initial admin bootstrap failed', err);
+      }
       return db;
     })();
   }

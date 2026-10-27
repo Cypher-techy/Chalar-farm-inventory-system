@@ -3,10 +3,21 @@ import { z } from 'zod';
 import { login, SESSION_COOKIE_NAME } from '@/lib/auth';
 import { ApiError, clientIp, jsonError, jsonOk, rateLimit } from '@/lib/guards';
 
-const loginSchema = z.object({
-  email: z.string().email('Enter a valid email address.'),
-  password: z.string().min(1, 'Password is required.'),
-});
+const loginSchema = z.object(
+  {
+    email: z
+      .string({ required_error: 'Enter your email address.', invalid_type_error: 'Enter your email address.' })
+      .trim()
+      .min(1, 'Enter your email address.')
+      .max(254, 'Enter a valid email address.')
+      .email('Enter a valid email address.'),
+    password: z
+      .string({ required_error: 'Enter your password.', invalid_type_error: 'Enter your password.' })
+      .min(1, 'Enter your password.')
+      .max(256, 'Password is too long.'),
+  },
+  { required_error: 'Invalid sign-in request.', invalid_type_error: 'Invalid sign-in request.' }
+);
 
 export async function POST(req: NextRequest) {
   try {
